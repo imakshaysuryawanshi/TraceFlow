@@ -19,6 +19,7 @@ export default function TopBar() {
   const trace = useTraceStore((s) => s.trace);
   const loadTrace = useTraceStore((s) => s.loadTrace);
   const runTrace = useTraceStore((s) => s.runTrace);
+  const resetCode = useTraceStore((s) => s.resetCode);
   const running = useTraceStore((s) => s.running);
   const toggleInspector = useTraceStore((s) => s.toggleInspector);
   const codeDirty = useTraceStore(selectCodeDirty);
@@ -35,7 +36,11 @@ export default function TopBar() {
       const stage = res.error.stage === "parse" ? "Parse error" : "Runtime error";
       toast.error(`${stage}${line}`, {
         description: res.error.message,
-        duration: 6000,
+        duration: 8000,
+        action: {
+          label: "Reset code",
+          onClick: () => resetCode(),
+        },
       });
     } else if (res && res.ok && codeDirty) {
       toast.success("Trace generated", {

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import axios from "axios";
+import { saveSnippet, loadSnippet, clearSnippet } from "@/store/snippetStorage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -59,18 +60,48 @@ export const useTraceStore = create((set, get) => ({
     set({ traceLoading: true, error: null });
     try {
       const { data } = await axios.get(`${API}/traces/${id}`);
+      // Restore a locally saved snippet for this sample if the user had
+      // edited it in a previous session; otherwise use the sample's code.
+      const saved = loadSnippet(data.id);
+      const draftCode = saved != null && saved !== data.code ? saved : data.code;
       set({
         trace: data,
-        draftCode: data.code,
+        draftCode,
         currentStep: 0,
         traceLoading: false,
+        execError: null,
       });
     } catch (e) {
       set({ error: "Failed to load trace", traceLoading: false });
     }
   },
 
-  setDraftCode: (code) => set({ draftCode: code, execError: null }),
+  setDraftCode: (code) => {
+    const { trace } = get();
+    set({ draftCode: code, execError: null });
+    // Persist only the delta. When the user manually types back to the
+    // sample's original source, drop the local override so the sample
+    // opens clean next time.
+    if (trace) {
+      if (code === trace.code) {
+        clearSnippet(trace.id);
+      } else {
+        saveSnippet(trace.id, code);
+      }
+    }
+  },
+
+  /**
+   * Reset the editor to the loaded sample's canonical code and drop any
+   * locally-saved override for that sample. Also clears the current
+   * execution error and rewinds the timeline to step 0.
+   */
+  resetCode: () => {
+    const { trace } = get();
+    if (!trace) return;
+    clearSnippet(trace.id);
+    set({ draftCode: trace.code, currentStep: 0, execError: null });
+  },
 
   /**
    * Run Trace:

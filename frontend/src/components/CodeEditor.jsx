@@ -18,6 +18,7 @@ export default function CodeEditor() {
   const trace = useTraceStore((s) => s.trace);
   const draftCode = useTraceStore((s) => s.draftCode);
   const setDraftCode = useTraceStore((s) => s.setDraftCode);
+  const resetCode = useTraceStore((s) => s.resetCode);
   const currentStep = useTraceStore(selectCurrentStep);
   const codeDirty = useTraceStore(selectCodeDirty);
 
@@ -85,8 +86,8 @@ export default function CodeEditor() {
     editor.revealLineInCenterIfOutsideViewport(line);
   }, [currentStep, codeDirty]);
 
-  const resetCode = () => {
-    if (trace) setDraftCode(trace.code);
+  const resetLocal = () => {
+    resetCode();
   };
 
   return (
@@ -112,9 +113,9 @@ export default function CodeEditor() {
                 edited
               </span>
               <button
-                onClick={resetCode}
+                onClick={resetLocal}
                 className="flex items-center gap-1 text-[10.5px] mono text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))] transition-colors"
-                title="Revert to sample code"
+                title="Revert to sample code (also clears the saved local override)"
                 data-testid="reset-code-btn"
               >
                 <RotateCcw className="w-3 h-3" />

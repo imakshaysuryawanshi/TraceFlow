@@ -1,0 +1,82 @@
+from fastapi import FastAPI, APIRouter, HTTPException
+from dotenv import load_dotenv
+from starlette.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+import json
+import logging
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+# MongoDB connection (kept for future phases; not used in Phase 1-4)
+mongo_url = os.environ['MONGO_URL']
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ['DB_NAME']]
+
+app = FastAPI(title="TraceFlow API")
+api_router = APIRouter(prefix="/api")
+
+
+# Load mock trace samples from JSON so it matches the future execution engine
+# response format exactly. The parser/trace-generator (Phase 5+) will produce
+# the same schema.
+TRACES_PATH = ROOT_DIR / "mock_traces.json"
+
+
+def _load_traces():
+    with open(TRACES_PATH, "r") as f:
+        return json.load(f)
+
+
+@api_router.get("/")
+async def root():
+    return {"service": "TraceFlow", "status": "ok"}
+
+
+@api_router.get("/traces")
+async def list_traces():
+    """Return the list of available sample traces (id, name, description)."""
+    data = _load_traces()
+    return [
+        {
+            "id": t["id"],
+            "name": t["name"],
+            "description": t["description"],
+        }
+        for t in data["samples"]
+    ]
+
+
+@api_router.get("/traces/{trace_id}")
+async def get_trace(trace_id: str):
+    """Return a full trace (code + steps) by id."""
+    data = _load_traces()
+    for t in data["samples"]:
+        if t["id"] == trace_id:
+            return t
+    raise HTTPException(status_code=404, detail=f"Trace '{trace_id}' not found")
+
+
+app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()

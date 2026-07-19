@@ -3,7 +3,8 @@ import {
   selectCodeDirty,
 } from "@/store/traceStore";
 import { TF } from "@/constants/testIds";
-import { Waypoints, ChevronDown, Play, Braces } from "lucide-react";
+import { Waypoints, ChevronDown, Play, Braces, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,15 +19,31 @@ export default function TopBar() {
   const trace = useTraceStore((s) => s.trace);
   const loadTrace = useTraceStore((s) => s.loadTrace);
   const runTrace = useTraceStore((s) => s.runTrace);
+  const running = useTraceStore((s) => s.running);
   const toggleInspector = useTraceStore((s) => s.toggleInspector);
   const codeDirty = useTraceStore(selectCodeDirty);
 
-  // Phase 4: RunTrace re-plays the mock only. If code has been edited,
-  // the button is disabled with a tooltip explaining Phase 5 requirement.
-  const runDisabled = !trace || codeDirty;
+  const runDisabled = !trace || running;
   const runTitle = codeDirty
-    ? "Custom code execution ships in Phase 5 (Java parser). Reset the code or pick a sample to run the mock trace."
-    : "Replay mock trace from the beginning";
+    ? "Parse your code and generate an execution trace"
+    : "Replay the current trace from the beginning";
+
+  const onRun = async () => {
+    const res = await runTrace();
+    if (res && !res.ok) {
+      const line = res.error.line != null ? ` (line ${res.error.line})` : "";
+      const stage = res.error.stage === "parse" ? "Parse error" : "Runtime error";
+      toast.error(`${stage}${line}`, {
+        description: res.error.message,
+        duration: 6000,
+      });
+    } else if (res && res.ok && codeDirty) {
+      toast.success("Trace generated", {
+        description: `${res.trace.steps.length} steps`,
+        duration: 2200,
+      });
+    }
+  };
 
   return (
     <header
@@ -89,19 +106,27 @@ export default function TopBar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Run Trace (Phase 4: mock re-run only) */}
+        {/* Run Trace — POSTs to /api/execute when code is dirty; otherwise
+            re-plays the current trace from the beginning. */}
         <button
           data-testid={TF.runTraceButton}
           disabled={runDisabled}
-          onClick={runTrace}
+          onClick={onRun}
           title={runTitle}
           className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-medium transition-colors border border-[hsl(var(--tf-accent))]/40 bg-[hsl(var(--tf-accent))]/10 text-[hsl(var(--tf-accent))] hover:bg-[hsl(var(--tf-accent))]/15 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[hsl(var(--tf-accent))]/10"
         >
-          <Play className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
-          Run trace
-          {codeDirty && (
-            <span className="text-[9.5px] uppercase tracking-wider text-[hsl(var(--tf-warning))] bg-[hsl(var(--tf-warning))]/10 px-1.5 py-0.5 rounded border border-[hsl(var(--tf-warning))]/25 ml-1">
-              phase 5
+          {running ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2.4} />
+          ) : (
+            <Play className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
+          )}
+          {running ? "Running…" : "Run trace"}
+          {codeDirty && !running && (
+            <span
+              data-testid="run-trace-live-badge"
+              className="text-[9.5px] uppercase tracking-wider text-[hsl(var(--tf-accent))]/80 bg-[hsl(var(--tf-accent))]/10 px-1.5 py-0.5 rounded border border-[hsl(var(--tf-accent))]/25 ml-1"
+            >
+              live
             </span>
           )}
         </button>

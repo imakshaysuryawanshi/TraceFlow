@@ -34,6 +34,10 @@ export const useTraceStore = create((set, get) => ({
   playbackSpeedMs: 900,
   _timer: null,
 
+  // Execution status
+  running: false,
+  execError: null, // { message, line, stage } from /api/execute failures
+
   // Dev tools
   inspectorOpen: false,
   stripExpanded: false,
@@ -66,18 +70,58 @@ export const useTraceStore = create((set, get) => ({
     }
   },
 
-  setDraftCode: (code) => set({ draftCode: code }),
+  setDraftCode: (code) => set({ draftCode: code, execError: null }),
 
   /**
-   * Phase 4: "Run Trace" only re-plays the currently loaded mock trace.
-   * TODO(phase-5/6): POST draftCode to /api/execute, get back a Trace
-   * conforming to the frozen schema, and swap it in via set({ trace, ... }).
+   * Run Trace:
+   *   - If the code buffer matches the loaded sample, just re-play the
+   *     current trace from step 0.
+   *   - Otherwise POST the draft to /api/execute, receive a Trace that
+   *     conforms to the frozen v1.0 schema, and swap it in. Frontend
+   *     panels consume it identically to a mock trace — no UI changes.
    */
-  runTrace: () => {
-    const { trace } = get();
-    if (!trace) return;
-    get().pause();
-    set({ currentStep: 0 });
+  runTrace: async () => {
+    const state = get();
+    state.pause();
+
+    const isDirty = !!state.trace && state.draftCode !== state.trace.code;
+    if (!isDirty) {
+      set({ currentStep: 0, execError: null });
+      return { ok: true };
+    }
+
+    set({ running: true, execError: null });
+    try {
+      const { data } = await axios.post(`${API}/execute`, {
+        code: state.draftCode,
+        id: "user-code",
+        name: "Your code",
+        description: "Generated from the editor",
+      });
+      set({
+        trace: data,
+        currentStep: 0,
+        running: false,
+        execError: null,
+      });
+      return { ok: true, trace: data };
+    } catch (e) {
+      const detail = e?.response?.data?.detail;
+      const execError =
+        detail && typeof detail === "object"
+          ? {
+              message: detail.message || "Execution failed",
+              line: detail.line ?? null,
+              stage: detail.stage || "execute",
+            }
+          : {
+              message: e?.message || "Network error",
+              line: null,
+              stage: "network",
+            };
+      set({ running: false, execError });
+      return { ok: false, error: execError };
+    }
   },
 
   // ---------- playback ----------

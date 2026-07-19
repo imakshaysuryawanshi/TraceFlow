@@ -9,6 +9,7 @@ import TimelineControls from "@/components/TimelineControls";
 import StepsStrip from "@/components/StepsStrip";
 import TraceInspector from "@/components/TraceInspector";
 import { useTraceStore } from "@/store/traceStore";
+import { Toaster } from "@/components/ui/sonner";
 
 function App() {
   const loadSamples = useTraceStore((s) => s.loadSamples);
@@ -87,6 +88,9 @@ function App() {
 
       {/* Hidden developer panel — toggled via Ctrl/Cmd + ` */}
       <TraceInspector />
+
+      {/* Global toaster for /api/execute errors + success */}
+      <Toaster position="bottom-right" richColors closeButton theme="dark" />
     </div>
   );
 }

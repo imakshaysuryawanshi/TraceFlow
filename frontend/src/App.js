@@ -10,6 +10,11 @@ import StepsStrip from "@/components/StepsStrip";
 import TraceInspector from "@/components/TraceInspector";
 import { useTraceStore } from "@/store/traceStore";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 function App() {
   const loadSamples = useTraceStore((s) => s.loadSamples);
@@ -66,18 +71,33 @@ function App() {
     <div className="App flex flex-col bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))]">
       <TopBar />
 
-      {/* Three-panel main area */}
-      <div className="flex-1 grid grid-cols-12 gap-px bg-[hsl(var(--tf-border))] overflow-hidden">
-        <div className="col-span-5 min-w-0 bg-[hsl(var(--tf-bg))]">
-          <CodeEditor />
-        </div>
-        <div className="col-span-4 min-w-0 bg-[hsl(var(--tf-bg))] tf-grid-bg">
-          <ExecutionPanel />
-        </div>
-        <div className="col-span-3 min-w-0 bg-[hsl(var(--tf-bg))]">
-          <AIExplanation />
-        </div>
-      </div>
+      {/* Three-panel main area — resizable */}
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex-1 bg-[hsl(var(--tf-border))]"
+      >
+        <ResizablePanel defaultSize={40} minSize={20}>
+          <div className="h-full bg-[hsl(var(--tf-bg))]">
+            <CodeEditor />
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
+
+        <ResizablePanel defaultSize={35} minSize={20}>
+          <div className="h-full bg-[hsl(var(--tf-bg))] tf-grid-bg">
+            <ExecutionPanel />
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
+
+        <ResizablePanel defaultSize={25} minSize={15}>
+          <div className="h-full bg-[hsl(var(--tf-bg))]">
+            <AIExplanation />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Timeline + Output console */}
       <div className="border-t border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))]">

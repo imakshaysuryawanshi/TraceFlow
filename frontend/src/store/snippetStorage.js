@@ -70,3 +70,22 @@ export function clearLanguage(sampleId) {
     /* ignore */
   }
 }
+
+const AI_SETTINGS_KEY = "traceflow.ai.settings";
+
+export function saveAiSettings(settings) {
+  try {
+    localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadAiSettings() {
+  try {
+    const raw = localStorage.getItem(AI_SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}

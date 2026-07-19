@@ -10,6 +10,7 @@ from typing import Optional
 
 from parser import parse as parse_source, ParserError
 from trace_generator import generate as generate_trace, TraceGenerationError
+from ai.explanation import explain_steps
 
 
 ROOT_DIR = Path(__file__).parent
@@ -93,6 +94,9 @@ class ExecuteRequest(BaseModel):
     name: str = Field(default="Custom code")
     description: str = Field(default="")
     concept: Optional[str] = Field(default=None)
+    ai_provider: Optional[str] = Field(default=None, description="gemini | groq | openrouter | openai")
+    ai_model: Optional[str] = Field(default=None, description="Model override for the AI provider")
+    ai_api_key: Optional[str] = Field(default=None, description="User-supplied API key for the AI provider")
 
 
 @api_router.post("/execute")
@@ -120,6 +124,25 @@ async def execute_endpoint(req: ExecuteRequest):
             status_code=400,
             detail={"stage": "execute", "message": e.message, "line": e.line},
         )
+
+    # Phase 9 — AI explanation enrichment. Non-blocking: if it fails or
+    # no provider is configured, the templated explanations are kept.
+    if req.ai_provider:
+        try:
+            explanations = await explain_steps(
+                code=req.code,
+                language=req.language,
+                steps=trace.get("steps", []),
+                provider=req.ai_provider,
+                model=req.ai_model,
+                api_key=req.ai_api_key,
+            )
+            if explanations and len(explanations) == len(trace.get("steps", [])):
+                for i, exp in enumerate(explanations):
+                    trace["steps"][i]["explanation"] = exp
+        except Exception as e:
+            logger.warning("AI explanation failed (non-blocking): %s", e)
+
     return trace
 
 

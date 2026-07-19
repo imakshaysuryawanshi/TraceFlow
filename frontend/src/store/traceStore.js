@@ -7,6 +7,8 @@ import {
   saveLanguage,
   loadLanguage,
   clearLanguage,
+  saveAiSettings,
+  loadAiSettings,
 } from "@/store/snippetStorage";
 
 const SAMPLE_CODES = {
@@ -78,6 +80,11 @@ export const useTraceStore = create((set, get) => ({
   // Execution status
   running: false,
   execError: null, // { message, line, stage } from /api/execute failures
+
+  // AI explanation settings
+  aiProvider: "gemini",
+  aiModel: "",
+  aiApiKey: "",
 
   // Dev tools
   inspectorOpen: false,
@@ -214,6 +221,9 @@ export const useTraceStore = create((set, get) => ({
         id: "user-code",
         name: "Your code",
         description: "Generated from the editor",
+        ai_provider: state.aiProvider || null,
+        ai_model: state.aiModel || null,
+        ai_api_key: state.aiApiKey || null,
       });
       set({
         trace: data,
@@ -295,11 +305,27 @@ export const useTraceStore = create((set, get) => ({
     }
   },
 
+  // ---------- AI settings ----------
+  setAiSettings: (settings) => {
+    set({
+      aiProvider: settings.aiProvider ?? "gemini",
+      aiModel: settings.aiModel ?? "",
+      aiApiKey: settings.aiApiKey ?? "",
+    });
+    saveAiSettings(settings);
+  },
+
   // ---------- dev tools ----------
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   closeInspector: () => set({ inspectorOpen: false }),
   toggleStrip: () => set((s) => ({ stripExpanded: !s.stripExpanded })),
 }));
+
+// Initialize AI settings from localStorage
+const savedAi = loadAiSettings();
+if (savedAi) {
+  useTraceStore.getState().setAiSettings(savedAi);
+}
 
 // ---------- derived selectors (pure helpers) ----------
 export const selectCurrentStep = (state) =>

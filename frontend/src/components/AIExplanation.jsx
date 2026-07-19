@@ -23,9 +23,6 @@ export default function AIExplanation() {
         <span className="text-[11px] uppercase tracking-[0.14em] font-semibold">
           Explanation
         </span>
-        <span className="ml-auto text-[10px] mono text-[hsl(var(--tf-text-dim))] px-1.5 py-0.5 rounded border border-[hsl(var(--tf-border))]">
-          mock
-        </span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -73,9 +70,6 @@ export default function AIExplanation() {
         )}
       </div>
 
-      <div className="border-t border-[hsl(var(--tf-border))] px-3 py-2 text-[10.5px] text-[hsl(var(--tf-text-dim))] mono">
-        AI explanations are mocked in this phase.
-      </div>
     </div>
   );
 }

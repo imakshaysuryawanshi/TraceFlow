@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   useTraceStore,
   selectCodeDirty,
@@ -10,6 +11,7 @@ import {
   Braces,
   Loader2,
   Globe,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -20,6 +22,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import SettingsModal from "@/components/SettingsModal";
 
 const LANGUAGES = [
   { id: "java", label: "Java" },
@@ -28,6 +31,7 @@ const LANGUAGES = [
 ];
 
 export default function TopBar() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const samples = useTraceStore((s) => s.samples);
   const trace = useTraceStore((s) => s.trace);
   const language = useTraceStore((s) => s.language);
@@ -186,6 +190,15 @@ export default function TopBar() {
           )}
         </button>
 
+        {/* Settings */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="AI Settings"
+          className="w-8 h-8 rounded-md flex items-center justify-center border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel-2))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-accent))] hover:border-[hsl(var(--tf-accent))]/50 transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+
         {/* Inspector toggle */}
         <button
           data-testid={TF.inspectorToggle}
@@ -204,6 +217,8 @@ export default function TopBar() {
           <span className="tf-kbd">→</span>
         </div>
       </div>
+
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   );
 }

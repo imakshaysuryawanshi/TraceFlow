@@ -1,5 +1,6 @@
 {
   "schema_version": "1.0",
+  "schema_doc": "TraceFlow Trace v1.0 — FROZEN. Every step must satisfy: { step:int, line:int, variables:object, output:[string], changes:[string], explanation:string }. Optional UI hints (kind, label, condition, condition_result) may be added but are NOT required by the frontend and MUST NOT be relied on by future parser/AI code.",
   "samples": [
     {
       "id": "for-loop-sum",
@@ -11,140 +12,140 @@
         {
           "step": 1,
           "line": 1,
-          "kind": "declare",
-          "label": "Declare sum",
           "variables": { "sum": 0 },
-          "changed": ["sum"],
           "output": [],
-          "explanation": "The variable sum is declared and initialized to 0. It will accumulate the running total. Next, the for loop begins."
+          "changes": ["sum initialized to 0"],
+          "explanation": "The variable sum is declared and initialized to 0. It will accumulate the running total. Next, the for loop begins.",
+          "kind": "declare",
+          "label": "Declare sum"
         },
         {
           "step": 2,
           "line": 2,
-          "kind": "loop-init",
-          "label": "Initialize i = 1",
           "variables": { "sum": 0, "i": 1 },
-          "changed": ["i"],
           "output": [],
-          "explanation": "The loop counter i is initialized to 1. The condition i <= 3 will now be evaluated before the body executes."
+          "changes": ["i initialized to 1"],
+          "explanation": "The loop counter i is initialized to 1. The condition i <= 3 will now be evaluated before the body executes.",
+          "kind": "loop-init",
+          "label": "Initialize i = 1"
         },
         {
           "step": 3,
           "line": 2,
+          "variables": { "sum": 0, "i": 1 },
+          "output": [],
+          "changes": ["condition i <= 3 evaluated to true"],
+          "explanation": "The condition 1 <= 3 is true, so the loop body will execute. Nothing has changed yet.",
           "kind": "condition",
           "label": "Check i <= 3  →  true",
           "condition": "i <= 3",
-          "condition_result": true,
-          "variables": { "sum": 0, "i": 1 },
-          "changed": [],
-          "output": [],
-          "explanation": "The condition 1 <= 3 is true, so the loop body will execute. Nothing has changed yet."
+          "condition_result": true
         },
         {
           "step": 4,
           "line": 3,
-          "kind": "assign",
-          "label": "sum += i  →  sum = 1",
           "variables": { "sum": 1, "i": 1 },
-          "changed": ["sum"],
           "output": [],
-          "explanation": "The current value of i (1) is added to sum. sum changes from 0 to 1. The loop will now increment i."
+          "changes": ["sum changed from 0 to 1"],
+          "explanation": "The current value of i (1) is added to sum. sum changes from 0 to 1. The loop will now increment i.",
+          "kind": "assign",
+          "label": "sum += i  →  sum = 1"
         },
         {
           "step": 5,
           "line": 2,
-          "kind": "loop-step",
-          "label": "i++  →  i = 2",
           "variables": { "sum": 1, "i": 2 },
-          "changed": ["i"],
           "output": [],
-          "explanation": "The counter i is incremented to 2. The loop condition will be re-checked."
+          "changes": ["i incremented from 1 to 2"],
+          "explanation": "The counter i is incremented to 2. The loop condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  →  i = 2"
         },
         {
           "step": 6,
           "line": 2,
+          "variables": { "sum": 1, "i": 2 },
+          "output": [],
+          "changes": ["condition i <= 3 evaluated to true"],
+          "explanation": "2 <= 3 is true, so the loop body runs again. sum will be updated next.",
           "kind": "condition",
           "label": "Check i <= 3  →  true",
           "condition": "i <= 3",
-          "condition_result": true,
-          "variables": { "sum": 1, "i": 2 },
-          "changed": [],
-          "output": [],
-          "explanation": "2 <= 3 is true, so the loop body runs again. sum will be updated next."
+          "condition_result": true
         },
         {
           "step": 7,
           "line": 3,
-          "kind": "assign",
-          "label": "sum += i  →  sum = 3",
           "variables": { "sum": 3, "i": 2 },
-          "changed": ["sum"],
           "output": [],
-          "explanation": "i (2) is added to sum. sum changes from 1 to 3."
+          "changes": ["sum changed from 1 to 3"],
+          "explanation": "i (2) is added to sum. sum changes from 1 to 3.",
+          "kind": "assign",
+          "label": "sum += i  →  sum = 3"
         },
         {
           "step": 8,
           "line": 2,
-          "kind": "loop-step",
-          "label": "i++  →  i = 3",
           "variables": { "sum": 3, "i": 3 },
-          "changed": ["i"],
           "output": [],
-          "explanation": "i is incremented to 3. The condition is re-checked."
+          "changes": ["i incremented from 2 to 3"],
+          "explanation": "i is incremented to 3. The condition is re-checked.",
+          "kind": "loop-step",
+          "label": "i++  →  i = 3"
         },
         {
           "step": 9,
           "line": 2,
+          "variables": { "sum": 3, "i": 3 },
+          "output": [],
+          "changes": ["condition i <= 3 evaluated to true"],
+          "explanation": "3 <= 3 is true, so the body runs one last time.",
           "kind": "condition",
           "label": "Check i <= 3  →  true",
           "condition": "i <= 3",
-          "condition_result": true,
-          "variables": { "sum": 3, "i": 3 },
-          "changed": [],
-          "output": [],
-          "explanation": "3 <= 3 is true, so the body runs one last time."
+          "condition_result": true
         },
         {
           "step": 10,
           "line": 3,
-          "kind": "assign",
-          "label": "sum += i  →  sum = 6",
           "variables": { "sum": 6, "i": 3 },
-          "changed": ["sum"],
           "output": [],
-          "explanation": "i (3) is added to sum. sum changes from 3 to 6. This is the final iteration."
+          "changes": ["sum changed from 3 to 6"],
+          "explanation": "i (3) is added to sum. sum changes from 3 to 6. This is the final iteration.",
+          "kind": "assign",
+          "label": "sum += i  →  sum = 6"
         },
         {
           "step": 11,
           "line": 2,
-          "kind": "loop-step",
-          "label": "i++  →  i = 4",
           "variables": { "sum": 6, "i": 4 },
-          "changed": ["i"],
           "output": [],
-          "explanation": "i becomes 4. The condition will now be checked once more."
+          "changes": ["i incremented from 3 to 4"],
+          "explanation": "i becomes 4. The condition will now be checked once more.",
+          "kind": "loop-step",
+          "label": "i++  →  i = 4"
         },
         {
           "step": 12,
           "line": 2,
+          "variables": { "sum": 6, "i": 4 },
+          "output": [],
+          "changes": ["condition i <= 3 evaluated to false", "loop exited"],
+          "explanation": "4 <= 3 is false, so the loop exits. Execution moves to the print statement.",
           "kind": "condition",
           "label": "Check i <= 3  →  false",
           "condition": "i <= 3",
-          "condition_result": false,
-          "variables": { "sum": 6, "i": 4 },
-          "changed": [],
-          "output": [],
-          "explanation": "4 <= 3 is false, so the loop exits. Execution moves to the print statement."
+          "condition_result": false
         },
         {
           "step": 13,
           "line": 5,
-          "kind": "print",
-          "label": "System.out.println(sum)",
           "variables": { "sum": 6, "i": 4 },
-          "changed": [],
           "output": ["6"],
-          "explanation": "The final value of sum (6) is printed to the console. The program ends here."
+          "changes": ["printed \"6\""],
+          "explanation": "The final value of sum (6) is printed to the console. The program ends here.",
+          "kind": "print",
+          "label": "System.out.println(sum)"
         }
       ]
     },
@@ -158,34 +159,34 @@
         {
           "step": 1,
           "line": 1,
-          "kind": "declare",
-          "label": "Declare score = 72",
           "variables": { "score": 72 },
-          "changed": ["score"],
           "output": [],
-          "explanation": "The variable score is initialized to 72. This value will be tested against 60 next."
+          "changes": ["score initialized to 72"],
+          "explanation": "The variable score is initialized to 72. This value will be tested against 60 next.",
+          "kind": "declare",
+          "label": "Declare score = 72"
         },
         {
           "step": 2,
           "line": 2,
+          "variables": { "score": 72 },
+          "output": [],
+          "changes": ["condition score >= 60 evaluated to true", "took if branch"],
+          "explanation": "72 >= 60 evaluates to true. The if branch will execute; the else branch will be skipped.",
           "kind": "condition",
           "label": "Check score >= 60  →  true",
           "condition": "score >= 60",
-          "condition_result": true,
-          "variables": { "score": 72 },
-          "changed": [],
-          "output": [],
-          "explanation": "72 >= 60 evaluates to true. The if branch will execute; the else branch will be skipped."
+          "condition_result": true
         },
         {
           "step": 3,
           "line": 3,
-          "kind": "print",
-          "label": "System.out.println(\"Pass\")",
           "variables": { "score": 72 },
-          "changed": [],
           "output": ["Pass"],
-          "explanation": "Because the condition was true, \"Pass\" is printed. The else block is not executed."
+          "changes": ["printed \"Pass\""],
+          "explanation": "Because the condition was true, \"Pass\" is printed. The else block is not executed.",
+          "kind": "print",
+          "label": "System.out.println(\"Pass\")"
         }
       ]
     },
@@ -199,120 +200,120 @@
         {
           "step": 1,
           "line": 1,
-          "kind": "declare",
-          "label": "Declare n = 3",
           "variables": { "n": 3 },
-          "changed": ["n"],
           "output": [],
-          "explanation": "The variable n is initialized to 3. This value controls how many times the loop runs."
+          "changes": ["n initialized to 3"],
+          "explanation": "The variable n is initialized to 3. This value controls how many times the loop runs.",
+          "kind": "declare",
+          "label": "Declare n = 3"
         },
         {
           "step": 2,
           "line": 2,
+          "variables": { "n": 3 },
+          "output": [],
+          "changes": ["condition n > 0 evaluated to true"],
+          "explanation": "3 > 0 is true, so the loop body runs.",
           "kind": "condition",
           "label": "Check n > 0  →  true",
           "condition": "n > 0",
-          "condition_result": true,
-          "variables": { "n": 3 },
-          "changed": [],
-          "output": [],
-          "explanation": "3 > 0 is true, so the loop body runs."
+          "condition_result": true
         },
         {
           "step": 3,
           "line": 3,
-          "kind": "print",
-          "label": "System.out.println(n)  →  3",
           "variables": { "n": 3 },
-          "changed": [],
           "output": ["3"],
-          "explanation": "The current value of n (3) is printed to the console."
+          "changes": ["printed \"3\""],
+          "explanation": "The current value of n (3) is printed to the console.",
+          "kind": "print",
+          "label": "System.out.println(n)  →  3"
         },
         {
           "step": 4,
           "line": 4,
-          "kind": "assign",
-          "label": "n--  →  n = 2",
           "variables": { "n": 2 },
-          "changed": ["n"],
           "output": ["3"],
-          "explanation": "n is decremented to 2. The condition will be re-evaluated at the top of the loop."
+          "changes": ["n changed from 3 to 2"],
+          "explanation": "n is decremented to 2. The condition will be re-evaluated at the top of the loop.",
+          "kind": "assign",
+          "label": "n--  →  n = 2"
         },
         {
           "step": 5,
           "line": 2,
+          "variables": { "n": 2 },
+          "output": ["3"],
+          "changes": ["condition n > 0 evaluated to true"],
+          "explanation": "2 > 0 is true, so the body runs again.",
           "kind": "condition",
           "label": "Check n > 0  →  true",
           "condition": "n > 0",
-          "condition_result": true,
-          "variables": { "n": 2 },
-          "changed": [],
-          "output": ["3"],
-          "explanation": "2 > 0 is true, so the body runs again."
+          "condition_result": true
         },
         {
           "step": 6,
           "line": 3,
-          "kind": "print",
-          "label": "System.out.println(n)  →  2",
           "variables": { "n": 2 },
-          "changed": [],
           "output": ["3", "2"],
-          "explanation": "The value 2 is appended to the output."
+          "changes": ["printed \"2\""],
+          "explanation": "The value 2 is appended to the output.",
+          "kind": "print",
+          "label": "System.out.println(n)  →  2"
         },
         {
           "step": 7,
           "line": 4,
-          "kind": "assign",
-          "label": "n--  →  n = 1",
           "variables": { "n": 1 },
-          "changed": ["n"],
           "output": ["3", "2"],
-          "explanation": "n is decremented to 1."
+          "changes": ["n changed from 2 to 1"],
+          "explanation": "n is decremented to 1.",
+          "kind": "assign",
+          "label": "n--  →  n = 1"
         },
         {
           "step": 8,
           "line": 2,
+          "variables": { "n": 1 },
+          "output": ["3", "2"],
+          "changes": ["condition n > 0 evaluated to true"],
+          "explanation": "1 > 0 is true, so the body runs one more time.",
           "kind": "condition",
           "label": "Check n > 0  →  true",
           "condition": "n > 0",
-          "condition_result": true,
-          "variables": { "n": 1 },
-          "changed": [],
-          "output": ["3", "2"],
-          "explanation": "1 > 0 is true, so the body runs one more time."
+          "condition_result": true
         },
         {
           "step": 9,
           "line": 3,
-          "kind": "print",
-          "label": "System.out.println(n)  →  1",
           "variables": { "n": 1 },
-          "changed": [],
           "output": ["3", "2", "1"],
-          "explanation": "The value 1 is appended to the output."
+          "changes": ["printed \"1\""],
+          "explanation": "The value 1 is appended to the output.",
+          "kind": "print",
+          "label": "System.out.println(n)  →  1"
         },
         {
           "step": 10,
           "line": 4,
-          "kind": "assign",
-          "label": "n--  →  n = 0",
           "variables": { "n": 0 },
-          "changed": ["n"],
           "output": ["3", "2", "1"],
-          "explanation": "n is decremented to 0."
+          "changes": ["n changed from 1 to 0"],
+          "explanation": "n is decremented to 0.",
+          "kind": "assign",
+          "label": "n--  →  n = 0"
         },
         {
           "step": 11,
           "line": 2,
+          "variables": { "n": 0 },
+          "output": ["3", "2", "1"],
+          "changes": ["condition n > 0 evaluated to false", "loop exited"],
+          "explanation": "0 > 0 is false, so the loop terminates. The program ends here.",
           "kind": "condition",
           "label": "Check n > 0  →  false",
           "condition": "n > 0",
-          "condition_result": false,
-          "variables": { "n": 0 },
-          "changed": [],
-          "output": ["3", "2", "1"],
-          "explanation": "0 > 0 is false, so the loop terminates. The program ends here."
+          "condition_result": false
         }
       ]
     }

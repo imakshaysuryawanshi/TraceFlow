@@ -1,17 +1,25 @@
 import { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { useTraceStore, selectCurrentStep } from "@/store/traceStore";
+import {
+  useTraceStore,
+  selectCurrentStep,
+  selectCodeDirty,
+} from "@/store/traceStore";
 import { TF } from "@/constants/testIds";
-import { FileCode2 } from "lucide-react";
+import { FileCode2, Pencil, RotateCcw } from "lucide-react";
 
 /**
  * Left panel — Monaco editor.
- * Read-only in Phase 1-4 (mocked trace). The current executing line is
- * highlighted via a Monaco decoration and a glyph in the gutter.
+ * Phase 4: editable, but "Run Trace" only replays the mock trace when the
+ * code has not diverged from the loaded sample. Phase 5+ will POST the
+ * draft code to /api/execute.
  */
 export default function CodeEditor() {
   const trace = useTraceStore((s) => s.trace);
+  const draftCode = useTraceStore((s) => s.draftCode);
+  const setDraftCode = useTraceStore((s) => s.setDraftCode);
   const currentStep = useTraceStore(selectCurrentStep);
+  const codeDirty = useTraceStore(selectCodeDirty);
 
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -21,7 +29,6 @@ export default function CodeEditor() {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // Define a dark theme that matches TraceFlow palette
     monaco.editor.defineTheme("traceflow-dark", {
       base: "vs-dark",
       inherit: true,
@@ -48,11 +55,18 @@ export default function CodeEditor() {
     monaco.editor.setTheme("traceflow-dark");
   };
 
-  // Update the current-line decoration whenever the step changes
+  // Update the current-line decoration whenever the step changes. Skipped
+  // when the user has edited the code (line numbers may no longer match
+  // the mocked trace).
   useEffect(() => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
     if (!editor || !monaco || !currentStep) return;
+
+    if (codeDirty) {
+      decorationsRef.current = editor.deltaDecorations(decorationsRef.current, []);
+      return;
+    }
 
     const line = currentStep.line;
     decorationsRef.current = editor.deltaDecorations(
@@ -69,28 +83,62 @@ export default function CodeEditor() {
       ]
     );
     editor.revealLineInCenterIfOutsideViewport(line);
-  }, [currentStep]);
+  }, [currentStep, codeDirty]);
+
+  const resetCode = () => {
+    if (trace) setDraftCode(trace.code);
+  };
 
   return (
     <div
       data-testid={TF.codeEditor}
       className="h-full flex flex-col bg-[hsl(var(--tf-bg))]"
     >
-      <PanelHeader
-        icon={<FileCode2 className="w-3.5 h-3.5" />}
-        title="Code"
-        subtitle={trace ? `${trace.name} · Java` : "Java"}
-      />
+      <div className="h-9 flex items-center gap-2 px-3 border-b border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))] shrink-0">
+        <FileCode2 className="w-3.5 h-3.5 text-[hsl(var(--tf-text-muted))]" />
+        <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[hsl(var(--tf-text))]">
+          Code
+        </span>
+        {trace && (
+          <span className="text-[11px] text-[hsl(var(--tf-text-dim))] mono ml-1 truncate">
+            · {trace.name} · Java
+          </span>
+        )}
+        <span className="ml-auto flex items-center gap-2">
+          {codeDirty ? (
+            <>
+              <span className="flex items-center gap-1 text-[10.5px] mono text-[hsl(var(--tf-warning))]">
+                <Pencil className="w-3 h-3" />
+                edited
+              </span>
+              <button
+                onClick={resetCode}
+                className="flex items-center gap-1 text-[10.5px] mono text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))] transition-colors"
+                title="Revert to sample code"
+                data-testid="reset-code-btn"
+              >
+                <RotateCcw className="w-3 h-3" />
+                reset
+              </button>
+            </>
+          ) : (
+            <span className="text-[10.5px] mono text-[hsl(var(--tf-text-dim))]">
+              editable
+            </span>
+          )}
+        </span>
+      </div>
       <div className="flex-1 min-h-0" data-testid={TF.monacoEditor}>
         <Editor
           height="100%"
           defaultLanguage="java"
           language="java"
-          value={trace?.code ?? "// Loading sample…"}
+          value={draftCode}
+          onChange={(v) => setDraftCode(v ?? "")}
           onMount={handleMount}
           theme="traceflow-dark"
           options={{
-            readOnly: true,
+            readOnly: false,
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 13.5,
             fontLigatures: false,
@@ -110,25 +158,10 @@ export default function CodeEditor() {
             overviewRulerBorder: false,
             guides: { indentation: true },
             contextmenu: false,
+            tabSize: 4,
           }}
         />
       </div>
-    </div>
-  );
-}
-
-function PanelHeader({ icon, title, subtitle }) {
-  return (
-    <div className="h-9 flex items-center gap-2 px-3 border-b border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))] shrink-0">
-      <span className="text-[hsl(var(--tf-text-muted))]">{icon}</span>
-      <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[hsl(var(--tf-text))]">
-        {title}
-      </span>
-      {subtitle && (
-        <span className="text-[11px] text-[hsl(var(--tf-text-dim))] mono ml-1 truncate">
-          · {subtitle}
-        </span>
-      )}
     </div>
   );
 }

@@ -60,13 +60,24 @@ class TestGetTrace:
         assert data["id"] == trace_id
         assert isinstance(data.get("code"), str) and len(data["code"]) > 0
         assert isinstance(data.get("steps"), list) and len(data["steps"]) > 0
-        # Validate step schema on first step
-        step0 = data["steps"][0]
-        for key in ("step", "line", "kind", "label", "variables", "changed",
-                    "output", "explanation"):
-            assert key in step0, f"Missing key {key} on step[0] for {trace_id}"
+        # Validate step schema v1.0 (FROZEN) on every step:
+        # required fields: step, line, variables, output, changes, explanation
+        REQUIRED = ("step", "line", "variables", "output", "changes", "explanation")
+        for idx, s in enumerate(data["steps"]):
+            for key in REQUIRED:
+                assert key in s, f"Missing '{key}' on step[{idx}] of {trace_id}"
+            assert isinstance(s["step"], int)
+            assert isinstance(s["line"], int)
+            assert isinstance(s["variables"], dict)
+            assert isinstance(s["output"], list)
+            assert isinstance(s["changes"], list), (
+                f"step[{idx}].changes must be an array on {trace_id}"
+            )
+            for c in s["changes"]:
+                assert isinstance(c, str)
+            assert isinstance(s["explanation"], str)
 
-    def test_for_loop_sum_final_output(self):
+    def test_for_loop_sum_final_output_and_changes(self):
         r = requests.get(f"{API}/traces/for-loop-sum", timeout=15)
         assert r.status_code == 200
         data = r.json()
@@ -75,25 +86,39 @@ class TestGetTrace:
         assert len(steps) == 13
         # Final step outputs "6"
         assert steps[-1]["output"] == ["6"]
-        assert steps[-1]["kind"] == "print"
+        # step 4 changes should contain 'sum changed from 0 to 1'
+        step4 = steps[3]
+        assert step4["step"] == 4
+        assert "sum changed from 0 to 1" in step4["changes"], (
+            f"expected 'sum changed from 0 to 1' in step 4 changes, got {step4['changes']}"
+        )
 
-    def test_if_else_grade_print_step(self):
+    def test_if_else_grade_three_steps(self):
         r = requests.get(f"{API}/traces/if-else-grade", timeout=15)
         assert r.status_code == 200
         steps = r.json()["steps"]
-        # Contains a print step with "Pass"
-        prints = [s for s in steps if s["kind"] == "print"]
-        assert prints, "if-else-grade should have a print step"
-        assert prints[0]["output"] == ["Pass"]
+        assert len(steps) == 3
+        # step 3 output should be ['Pass']
+        assert steps[2]["output"] == ["Pass"]
 
-    def test_while_countdown_final_output(self):
+    def test_while_countdown_last_step_and_output(self):
         r = requests.get(f"{API}/traces/while-countdown", timeout=15)
         assert r.status_code == 200
         steps = r.json()["steps"]
-        assert steps[-1]["output"] == ["3", "2", "1"]
+        assert len(steps) == 11
+        last = steps[-1]
+        # last step index is 11 (1-indexed)
+        assert last["step"] == 11
+        assert any("loop exited" in c for c in last["changes"]), (
+            f"expected 'loop exited' in last step changes, got {last['changes']}"
+        )
+        # Optional condition_result field present and false
+        assert last.get("condition_result") is False
+        # step 3 output is ['3']
+        assert steps[2]["output"] == ["3"]
 
     def test_get_trace_404_for_missing_id(self):
-        r = requests.get(f"{API}/traces/does-not-exist", timeout=15)
+        r = requests.get(f"{API}/traces/missing-id", timeout=15)
         assert r.status_code == 404
         body = r.json()
         assert "detail" in body

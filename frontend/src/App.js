@@ -6,6 +6,7 @@ import ExecutionPanel from "@/components/ExecutionPanel";
 import AIExplanation from "@/components/AIExplanation";
 import OutputConsole from "@/components/OutputConsole";
 import TimelineControls from "@/components/TimelineControls";
+import TraceInspector from "@/components/TraceInspector";
 import { useTraceStore } from "@/store/traceStore";
 
 function App() {
@@ -15,8 +16,9 @@ function App() {
   const trace = useTraceStore((s) => s.trace);
   const next = useTraceStore((s) => s.next);
   const prev = useTraceStore((s) => s.prev);
+  const toggleInspector = useTraceStore((s) => s.toggleInspector);
+  const closeInspector = useTraceStore((s) => s.closeInspector);
 
-  // Bootstrap: load catalog once, then auto-load the first sample.
   useEffect(() => {
     loadSamples();
   }, [loadSamples]);
@@ -27,14 +29,25 @@ function App() {
     }
   }, [samples, trace, loadTrace]);
 
-  // Global keyboard shortcuts for timeline navigation
+  // Global keyboard shortcuts
   useEffect(() => {
     const onKey = (e) => {
-      if (
-        e.target &&
-        ["INPUT", "TEXTAREA"].includes(e.target.tagName)
-      )
+      // Inspector toggle: Cmd/Ctrl + `
+      if ((e.metaKey || e.ctrlKey) && e.key === "`") {
+        e.preventDefault();
+        toggleInspector();
         return;
+      }
+      if (e.key === "Escape") {
+        closeInspector();
+        return;
+      }
+      // Timeline navigation only when NOT inside an editable element
+      const tag = e.target?.tagName;
+      const editable = e.target?.isContentEditable;
+      if (["INPUT", "TEXTAREA"].includes(tag) || editable) return;
+      // Monaco puts focus on a textarea inside its widget; the check above
+      // covers it. Arrow keys should not steal focus from Monaco either.
       if (e.key === "ArrowRight") {
         e.preventDefault();
         next();
@@ -45,7 +58,7 @@ function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev]);
+  }, [next, prev, toggleInspector, closeInspector]);
 
   return (
     <div className="App flex flex-col bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))]">
@@ -69,6 +82,9 @@ function App() {
         <TimelineControls />
         <OutputConsole />
       </div>
+
+      {/* Hidden developer panel — toggled via Ctrl/Cmd + ` */}
+      <TraceInspector />
     </div>
   );
 }

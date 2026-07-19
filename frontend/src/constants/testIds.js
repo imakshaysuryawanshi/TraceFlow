@@ -4,6 +4,7 @@ export const TF = {
   sampleSelector: "sample-selector",
   sampleOption: (id) => `sample-option-${id}`,
   runTraceButton: "run-trace-button",
+  inspectorToggle: "inspector-toggle",
 
   // Panels
   codeEditor: "code-editor-panel",
@@ -28,12 +29,20 @@ export const TF = {
   variableCard: (name) => `variable-card-${name}`,
   variableChangedBadge: (name) => `variable-changed-${name}`,
   whatChanged: "what-changed-block",
+  changeItem: (i) => `change-item-${i}`,
 
   // AI
   aiExplanationText: "ai-explanation-text",
 
   // Output
   outputLine: (i) => `output-line-${i}`,
+
+  // Inspector
+  inspector: "trace-inspector",
+  inspectorClose: "inspector-close",
+  inspectorTab: (tab) => `inspector-tab-${tab}`,
+  inspectorJson: "inspector-json",
+  inspectorValidation: "inspector-validation",
 };
 
 // Kept for compatibility with legacy template

@@ -4,12 +4,17 @@ import {
   selectPrevStep,
 } from "@/store/traceStore";
 import { TF } from "@/constants/testIds";
+import { diffChangedVars } from "@/schemas/traceSchema";
 import VariableCard from "@/components/VariableCard";
 import { Activity, GitCommit, Zap } from "lucide-react";
 
 /**
  * CENTER panel — Execution Visualization.
  * Answers: What is executing? What changed? What are the variables?
+ *
+ * Consumes ONLY the frozen trace schema:
+ *   step.line, step.variables, step.output, step.changes, step.explanation
+ * plus optional UI hints (kind, label, condition, condition_result).
  */
 export default function ExecutionPanel() {
   const trace = useTraceStore((s) => s.trace);
@@ -27,7 +32,9 @@ export default function ExecutionPanel() {
 
   const variables = step.variables || {};
   const varEntries = Object.entries(variables);
-  const changed = new Set(step.changed || []);
+  // Derived from canonical `variables` snapshot — NOT reliant on any
+  // optional trace field.
+  const changedSet = diffChangedVars(step, prev);
 
   return (
     <div
@@ -59,7 +66,7 @@ export default function ExecutionPanel() {
           className="tf-fade-in rounded-md border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel))] p-3.5"
         >
           <div className="flex items-center gap-2 mb-1.5">
-            <StepKindBadge kind={step.kind} />
+            {step.kind && <StepKindBadge kind={step.kind} />}
             <span
               className="text-[11px] mono text-[hsl(var(--tf-text-muted))]"
               data-testid={TF.currentLineIndicator}
@@ -68,7 +75,7 @@ export default function ExecutionPanel() {
             </span>
           </div>
           <div className="mono text-[13.5px] text-[hsl(var(--tf-text))] leading-relaxed">
-            {step.label}
+            {step.label || (step.changes && step.changes[0]) || `step ${step.step}`}
           </div>
           {step.condition && (
             <div className="mt-2 flex items-center gap-2">
@@ -108,7 +115,7 @@ export default function ExecutionPanel() {
                   name={name}
                   value={value}
                   previousValue={prev?.variables?.[name]}
-                  changed={changed.has(name)}
+                  changed={changedSet.has(name)}
                   stepKey={currentStepIdx}
                 />
               ))}
@@ -116,7 +123,7 @@ export default function ExecutionPanel() {
           )}
         </div>
 
-        {/* What changed */}
+        {/* What changed — driven by canonical step.changes[] */}
         <WhatChanged step={step} prev={prev} />
       </div>
     </div>
@@ -140,6 +147,8 @@ function StepKindBadge({ kind }) {
     "loop-init": { label: "loop init", color: "blue" },
     "loop-step": { label: "loop step", color: "blue" },
     print: { label: "print", color: "green" },
+    call: { label: "call", color: "cyan" },
+    return: { label: "return", color: "cyan" },
   };
   const meta = map[kind] || { label: kind, color: "cyan" };
   const colors = {
@@ -158,30 +167,7 @@ function StepKindBadge({ kind }) {
 }
 
 function WhatChanged({ step, prev }) {
-  const changes = [];
-
-  // Variable changes
-  const prevVars = prev?.variables || {};
-  for (const name of step.changed || []) {
-    const before = prevVars[name];
-    const after = step.variables?.[name];
-    changes.push({
-      kind: "var",
-      name,
-      before: before === undefined ? "—" : String(before),
-      after: String(after),
-    });
-  }
-
-  // Output changes
-  const prevOut = prev?.output || [];
-  const curOut = step.output || [];
-  if (curOut.length > prevOut.length) {
-    const added = curOut.slice(prevOut.length);
-    added.forEach((line) => {
-      changes.push({ kind: "output", value: line });
-    });
-  }
+  const changes = step.changes || [];
 
   return (
     <div data-testid={TF.whatChanged}>
@@ -197,31 +183,11 @@ function WhatChanged({ step, prev }) {
           {changes.map((c, i) => (
             <li
               key={i}
-              className="mono text-[12.5px] flex items-center gap-2 text-[hsl(var(--tf-text))]"
+              data-testid={TF.changeItem(i)}
+              className="flex items-start gap-2 text-[12.5px] text-[hsl(var(--tf-text))]"
             >
-              {c.kind === "var" ? (
-                <>
-                  <span className="text-[hsl(var(--tf-accent))]">
-                    {c.name}
-                  </span>
-                  <span className="text-[hsl(var(--tf-text-dim))]">
-                    {c.before}
-                  </span>
-                  <span className="text-[hsl(var(--tf-text-dim))]">→</span>
-                  <span className="text-[hsl(var(--tf-text))]">
-                    {c.after}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--tf-success))] bg-[hsl(var(--tf-success))]/10 px-1.5 py-0.5 rounded">
-                    out
-                  </span>
-                  <span className="text-[hsl(var(--tf-text))]">
-                    {c.value}
-                  </span>
-                </>
-              )}
+              <span className="mt-1 w-1 h-1 rounded-full bg-[hsl(var(--tf-accent))] shrink-0" />
+              <span className="mono leading-relaxed">{c}</span>
             </li>
           ))}
         </ul>

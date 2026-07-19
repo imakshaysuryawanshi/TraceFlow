@@ -1,21 +1,10 @@
-"""
-Java Parser — Phase 5 (NOT IMPLEMENTED)
-========================================
+"""TraceFlow Java parser — Phase 5.
 
-Placeholder module. Will convert supported Java source into a simplified AST.
-
-Supported subset (per MVP scope):
-    - variable declarations & assignments
-    - arithmetic expressions
-    - System.out.println
-    - if / else
-    - for loops
-    - while loops
-    - basic methods (no OOP, no inheritance, no collections)
-
-Contract (Phase 5 will implement):
-    parse(source: str) -> SimplifiedAst
+Public exports:
+    parse(source: str) -> dict
+    ParserError
 """
 
-# TODO(phase-5): implement Java parser. Recommended path: use `javalang`
-# (pure-Python) or a hand-written recursive descent parser for the subset.
+from .parser import parse, ParserError
+
+__all__ = ["parse", "ParserError"]

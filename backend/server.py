@@ -2,10 +2,13 @@ from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel, Field
 import os
 import json
 import logging
 from pathlib import Path
+
+from parser import parse as parse_java, ParserError
 
 
 ROOT_DIR = Path(__file__).parent
@@ -58,6 +61,30 @@ async def get_trace(trace_id: str):
         if t["id"] == trace_id:
             return t
     raise HTTPException(status_code=404, detail=f"Trace '{trace_id}' not found")
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — Java parser diagnostic endpoint.
+# Phase 6 (trace generator) will consume the same AST directly in-process,
+# but exposing it via HTTP lets the frontend Trace Inspector show the parsed
+# AST and lets us iterate on the parser via curl.
+# ---------------------------------------------------------------------------
+
+class ParseRequest(BaseModel):
+    code: str = Field(..., description="Java source to parse")
+
+
+@api_router.post("/parse")
+async def parse_endpoint(req: ParseRequest):
+    """Parse the given Java source into TraceFlow's simplified AST."""
+    try:
+        ast = parse_java(req.code)
+    except ParserError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": e.message, "line": e.line},
+        )
+    return {"ok": True, "ast": ast}
 
 
 app.include_router(api_router)

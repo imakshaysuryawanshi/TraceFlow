@@ -40,20 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import javalang
 from javalang import tree as jt
 
-
-# ---------------------------------------------------------------------------
-# Errors
-# ---------------------------------------------------------------------------
-
-class ParserError(Exception):
-    """Raised for syntax errors or unsupported Java constructs."""
-
-    def __init__(self, message: str, line: Optional[int] = None):
-        self.message = message
-        self.line = line
-        super().__init__(
-            f"line {line}: {message}" if line is not None else message
-        )
+from .errors import ParserError
 
 
 # ---------------------------------------------------------------------------

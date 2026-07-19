@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from parser import parse as parse_java, ParserError
+from parser import parse as parse_source, ParserError
 from trace_generator import generate as generate_trace, TraceGenerationError
 
 
@@ -73,30 +73,26 @@ async def get_trace(trace_id: str):
 # ---------------------------------------------------------------------------
 
 class ParseRequest(BaseModel):
-    code: str = Field(..., description="Java source to parse")
+    code: str = Field(..., description="Source code to parse")
+    language: str = Field(default="java", description="java | python | javascript")
 
 
 @api_router.post("/parse")
 async def parse_endpoint(req: ParseRequest):
-    """Parse the given Java source into TraceFlow's simplified AST."""
+    """Parse the given source into TraceFlow's simplified AST."""
     try:
-        ast = parse_java(req.code)
+        ast = parse_source(req.code, language=req.language)
     except ParserError as e:
         raise HTTPException(
             status_code=400,
             detail={"message": e.message, "line": e.line},
         )
-    return {"ok": True, "ast": ast}
+    return {"ok": True, "ast": ast, "language": req.language}
 
-
-# ---------------------------------------------------------------------------
-# Phase 6 — Execution trace endpoint.
-# Parse the user's Java source and generate a trace matching the frozen v1.0
-# schema. Frontend consumes the exact same shape as /api/traces/{id}.
-# ---------------------------------------------------------------------------
 
 class ExecuteRequest(BaseModel):
-    code: str = Field(..., description="Java source to execute")
+    code: str = Field(..., description="Source code to execute")
+    language: str = Field(default="java", description="java | python | javascript")
     id: str = Field(default="user-code", description="Trace id (returned as-is)")
     name: str = Field(default="Custom code")
     description: str = Field(default="")
@@ -107,7 +103,7 @@ class ExecuteRequest(BaseModel):
 async def execute_endpoint(req: ExecuteRequest):
     """Parse + generate a trace for the given source. Returns a Trace."""
     try:
-        ast = parse_java(req.code)
+        ast = parse_source(req.code, language=req.language)
     except ParserError as e:
         raise HTTPException(
             status_code=400,
@@ -121,6 +117,7 @@ async def execute_endpoint(req: ExecuteRequest):
             description=req.description,
             concept=req.concept,
             code=req.code,
+            language=req.language,
         )
     except TraceGenerationError as e:
         raise HTTPException(

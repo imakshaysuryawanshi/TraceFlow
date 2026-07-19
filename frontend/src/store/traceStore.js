@@ -23,6 +23,10 @@ export const useTraceStore = create((set, get) => ({
 
   // Editable code buffer (Phase 4: mirrors trace.code; Phase 5+: user's source)
   draftCode: "",
+  // Current language selection — java | python | javascript. Persisted per
+  // sample together with the draft code so switching samples doesn't lose
+  // the user's language pick.
+  language: "java",
   // True when draftCode diverges from the loaded sample's original code.
   // The "Run Trace" button uses this to decide UX in Phase 4:
   //   - unchanged  -> re-play mock (button enabled)
@@ -125,6 +129,7 @@ export const useTraceStore = create((set, get) => ({
     try {
       const { data } = await axios.post(`${API}/execute`, {
         code: state.draftCode,
+        language: state.language,
         id: "user-code",
         name: "Your code",
         description: "Generated from the editor",

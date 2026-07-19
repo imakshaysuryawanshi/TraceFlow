@@ -44,12 +44,15 @@ class TraceGenerationError(Exception):
 
 
 class _Emitter:
-    def __init__(self) -> None:
+    def __init__(self, *, integer_division: bool = True) -> None:
         self.vars: Dict[str, Any] = {}
         self.output: List[str] = []
         self.steps: List[Dict[str, Any]] = []
         self._step_num: int = 1
         self.stopped: bool = False
+        # Java-style int/int → int truncate. Python & JS use plain float
+        # division for `/`. Floor division `//` is always integer.
+        self.integer_division: bool = integer_division
 
     def emit(
         self,
@@ -123,16 +126,15 @@ def _evaluate(expr: Dict[str, Any], em: _Emitter) -> Any:
     if kind == "binary":
         left = _evaluate(expr["left"], em)
         right = _evaluate(expr["right"], em)
-        return _apply_binary(expr["op"], left, right, expr.get("line"))
+        return _apply_binary(expr["op"], left, right, expr.get("line"), em)
 
     if kind == "unary":
         return _evaluate_unary_pure(expr, em)
 
     if kind == "assign_expr":
-        # Rare — assignment nested inside another expression, e.g. `while ((x = f()) > 0)`.
         name = expr["name"]
         rhs = _evaluate(expr["value"], em)
-        new_val = _combine(expr["op"], em.vars.get(name), rhs, expr.get("line"))
+        new_val = _combine(expr["op"], em.vars.get(name), rhs, expr.get("line"), em)
         em.vars[name] = new_val
         return new_val
 
@@ -165,7 +167,7 @@ def _evaluate_unary_pure(expr: Dict[str, Any], em: _Emitter) -> Any:
     raise TraceGenerationError(f"unsupported unary operator '{op}'", expr.get("line"))
 
 
-def _apply_binary(op: str, a: Any, b: Any, line: Optional[int]) -> Any:
+def _apply_binary(op: str, a: Any, b: Any, line: Optional[int], em: _Emitter) -> Any:
     if op == "+":
         return a + b
     if op == "-":
@@ -173,21 +175,27 @@ def _apply_binary(op: str, a: Any, b: Any, line: Optional[int]) -> Any:
     if op == "*":
         return a * b
     if op == "/":
-        if isinstance(a, int) and isinstance(b, int):
-            if b == 0:
-                raise TraceGenerationError("division by zero", line)
-            # Java-style integer division (truncate toward zero)
-            q = abs(a) // abs(b)
-            return q if (a < 0) == (b < 0) else -q
         if b == 0:
             raise TraceGenerationError("division by zero", line)
+        # Java: int/int → int truncate toward zero. Python & JS: plain float.
+        if em.integer_division and isinstance(a, int) and isinstance(b, int):
+            q = abs(a) // abs(b)
+            return q if (a < 0) == (b < 0) else -q
         return a / b
+    if op == "//":
+        # Floor division — always integer for int operands (Python semantics)
+        if b == 0:
+            raise TraceGenerationError("floor division by zero", line)
+        # Python's // rounds toward negative infinity for negative operands
+        return a // b if isinstance(a, int) and isinstance(b, int) else float(a) // float(b)
     if op == "%":
         if b == 0:
             raise TraceGenerationError("modulo by zero", line)
-        # Java-style remainder (sign follows dividend)
-        r = abs(a) % abs(b)
-        return r if a >= 0 else -r
+        if em.integer_division and isinstance(a, int) and isinstance(b, int):
+            # Java-style remainder (sign follows dividend)
+            r = abs(a) % abs(b)
+            return r if a >= 0 else -r
+        return a % b
     if op == "==":
         return a == b
     if op == "!=":
@@ -207,20 +215,22 @@ def _apply_binary(op: str, a: Any, b: Any, line: Optional[int]) -> Any:
     raise TraceGenerationError(f"unsupported binary operator '{op}'", line)
 
 
-def _combine(op: str, old: Any, rhs: Any, line: Optional[int]) -> Any:
-    """Apply a compound-assignment operator: =, +=, -=, *=, /=, %=."""
+def _combine(op: str, old: Any, rhs: Any, line: Optional[int], em: _Emitter) -> Any:
+    """Apply a compound-assignment operator: =, +=, -=, *=, /=, //=, %=."""
     if op == "=":
         return rhs
     if op == "+=":
-        return _apply_binary("+", old, rhs, line)
+        return _apply_binary("+", old, rhs, line, em)
     if op == "-=":
-        return _apply_binary("-", old, rhs, line)
+        return _apply_binary("-", old, rhs, line, em)
     if op == "*=":
-        return _apply_binary("*", old, rhs, line)
+        return _apply_binary("*", old, rhs, line, em)
     if op == "/=":
-        return _apply_binary("/", old, rhs, line)
+        return _apply_binary("/", old, rhs, line, em)
+    if op == "//=":
+        return _apply_binary("//", old, rhs, line, em)
     if op == "%=":
-        return _apply_binary("%", old, rhs, line)
+        return _apply_binary("%", old, rhs, line, em)
     raise TraceGenerationError(f"unsupported assignment operator '{op}'", line)
 
 
@@ -335,7 +345,7 @@ def _exec_assign(stmt: Dict[str, Any], em: _Emitter, *, as_kind: str) -> None:
         raise TraceGenerationError(f"variable '{name}' is not defined", stmt.get("line"))
     old = em.vars[name]
     rhs = _evaluate(stmt["value"], em)
-    new = _combine(stmt["op"], old, rhs, stmt.get("line"))
+    new = _combine(stmt["op"], old, rhs, stmt.get("line"), em)
     em.vars[name] = new
 
     op = stmt["op"]
@@ -558,16 +568,18 @@ def generate(
     description: str = "",
     concept: Optional[str] = None,
     code: str = "",
+    language: str = "java",
 ) -> Dict[str, Any]:
     """Generate a full Trace from a parsed AST.
 
-    Raises TraceGenerationError for runtime issues (undefined variable,
-    division by zero, unsupported node reaching the interpreter, …).
+    The `language` argument only affects arithmetic semantics (Java uses
+    integer division for `int / int`; Python and JavaScript use float
+    division). The emitted Trace shape is identical across languages.
     """
     if not ast or ast.get("kind") != "program":
         raise TraceGenerationError("input is not a valid program AST")
 
-    em = _Emitter()
+    em = _Emitter(integer_division=(language.lower() == "java"))
     for stmt in ast.get("statements", []):
         if em.stopped:
             break
@@ -578,6 +590,7 @@ def generate(
         "name": name or id,
         "description": description,
         "code": code,
+        "language": language,
         "steps": em.steps,
     }
     if concept is not None:

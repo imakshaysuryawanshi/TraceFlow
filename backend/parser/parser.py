@@ -14,15 +14,14 @@ Supported constructs (MVP scope):
   - if / else
   - for loops (classic C-style)
   - while loops
-  - basic methods (static, in the same class) + calls + return
-  - literals: int, long, double, boolean, string, char
 
 Explicitly UNSUPPORTED (rejected with ParserError):
+  - user-declared methods, method calls (only System.out.println/print allowed)
   - arrays, generics, collections
   - object creation (`new Foo()`), inheritance, interfaces
   - threads, file IO, imports beyond default
-  - try/catch/throw, switch, do-while, break/continue (kept for later phases)
-  - lambdas, streams
+  - try/catch/throw, switch, do-while, break/continue
+  - lambdas, streams, recursion (methods are not supported)
 
 Public API:
   parse(source: str) -> dict   # simplified AST
@@ -111,6 +110,12 @@ _PRINT_METHODS = {"println", "print"}
 def _expr(node: Any, ctx: "_Ctx") -> Dict[str, Any]:
     line = _line_of(node, fallback=ctx.current_line, offset=ctx.offset)
 
+    # Any node with prefix/postfix operators (e.g. `-7`, `!x`, `i++`) is a
+    # unary expression. Check this BEFORE the plain-literal / member-reference
+    # branches so that `-7` isn't silently treated as `7`.
+    if getattr(node, "prefix_operators", None) or getattr(node, "postfix_operators", None):
+        return _handle_unary(node, ctx, line)
+
     if isinstance(node, jt.Literal):
         return _literal(node, line)
 
@@ -150,9 +155,12 @@ def _expr(node: Any, ctx: "_Ctx") -> Dict[str, Any]:
         }
 
     if isinstance(node, (jt.MethodInvocation,)):
-        return _method_call_expr(node, ctx, line)
+        # Method calls are only permitted at the statement level for
+        # System.out.println/print. Any expression-position call is rejected.
+        raise ParserError("method calls are not supported yet", line)
 
-    # ++x, --x, +x, -x, !x
+    # ++x, --x, +x, -x, !x — handled by the top-of-function early dispatch;
+    # left here as a safety net for direct calls with fresh nodes.
     if hasattr(node, "prefix_operators") or hasattr(node, "postfix_operators"):
         return _handle_unary(node, ctx, line)
 
@@ -211,20 +219,8 @@ def _handle_unary(node: Any, ctx: "_Ctx", line: int) -> Dict[str, Any]:
 
 
 def _method_call_expr(node: jt.MethodInvocation, ctx: "_Ctx", line: int) -> Dict[str, Any]:
-    """Handle a MethodInvocation appearing in expression position (not print)."""
-    if node.qualifier:
-        raise ParserError(
-            f"qualified method call '{node.qualifier}.{node.member}(...)' is not supported",
-            line,
-        )
-    if node.selectors:
-        raise ParserError("chained method calls are not supported", line)
-    return {
-        "kind": "call",
-        "name": node.member,
-        "args": [_expr(a, ctx) for a in (node.arguments or [])],
-        "line": line,
-    }
+    """Reserved — method calls are unsupported in current scope."""
+    raise ParserError("method calls are not supported yet", line)
 
 
 # ---------------------------------------------------------------------------
@@ -259,11 +255,7 @@ def _statement(node: Any, ctx: _Ctx) -> Dict[str, Any]:
         return _while_stmt(node, ctx, line)
 
     if isinstance(node, jt.ReturnStatement):
-        return {
-            "kind": "return",
-            "value": _expr(node.expression, ctx) if node.expression is not None else None,
-            "line": line,
-        }
+        raise ParserError("return statements require methods, which are not supported yet", line)
 
     if isinstance(node, jt.BlockStatement):
         # A bare block — flatten. Callers usually pass Block directly, so this
@@ -364,15 +356,11 @@ def _statement_expression(node: jt.StatementExpression, ctx: _Ctx, line: int) ->
         unary = _handle_unary(inner, ctx, line)
         return {"kind": "unary_stmt", **{k: v for k, v in unary.items() if k != "kind"}}
 
-    # ------- standalone method call -------
+    # ------- standalone method call (only System.out.print[ln]) -------
     if isinstance(inner, jt.MethodInvocation):
-        call = _method_call_expr(inner, ctx, line)
-        return {
-            "kind": "method_call",
-            "name": call["name"],
-            "args": call["args"],
-            "line": line,
-        }
+        raise ParserError(
+            "method calls are not supported (only System.out.println/print)", line
+        )
 
     raise ParserError(f"unsupported statement expression: {type(inner).__name__}", line)
 
@@ -484,46 +472,11 @@ def _body(stmt: Any, ctx: _Ctx) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Method + class extraction
+# Method extraction — methods are NOT supported in current scope. Kept here
+# only for documentation. Reserved for a future phase.
 # ---------------------------------------------------------------------------
 
 _UNSUPPORTED_MODIFIERS = {"synchronized", "native", "volatile", "abstract", "strictfp"}
-
-
-def _method_decl(method: jt.MethodDeclaration, ctx: _Ctx) -> Dict[str, Any]:
-    line = _line_of(method, fallback=ctx.current_line, offset=ctx.offset)
-    ctx.current_line = line
-
-    bad = _UNSUPPORTED_MODIFIERS & set(method.modifiers or [])
-    if bad:
-        raise ParserError(
-            f"method modifier '{next(iter(bad))}' is not supported", line
-        )
-    if method.type_parameters:
-        raise ParserError("generic methods are not supported", line)
-    if method.throws:
-        raise ParserError("throws declarations are not supported", line)
-
-    params: List[Dict[str, str]] = []
-    for p in method.parameters or []:
-        if p.varargs:
-            raise ParserError("varargs are not supported", line)
-        params.append({"type": _type_name(p.type, line), "name": p.name})
-
-    return_type = "void"
-    if method.return_type is not None:
-        return_type = _type_name(method.return_type, line)
-
-    body = _statements(method.body or [], ctx) if method.body is not None else []
-
-    return {
-        "kind": "method_decl",
-        "name": method.name,
-        "params": params,
-        "return_type": return_type,
-        "body": body,
-        "line": line,
-    }
 
 
 def _extract_program(tree: jt.CompilationUnit, ctx: _Ctx) -> Dict[str, Any]:
@@ -546,7 +499,6 @@ def _extract_program(tree: jt.CompilationUnit, ctx: _Ctx) -> Dict[str, Any]:
         raise ParserError("generic classes are not supported")
 
     statements: List[Dict[str, Any]] = []
-    methods: List[Dict[str, Any]] = []
     main_found = False
 
     for member in cls.body:
@@ -557,7 +509,10 @@ def _extract_program(tree: jt.CompilationUnit, ctx: _Ctx) -> Dict[str, Any]:
                 main_found = True
                 statements = _statements(member.body or [], ctx)
             else:
-                methods.append(_method_decl(member, ctx))
+                raise ParserError(
+                    "user-declared methods are not supported yet",
+                    _line_of(member, offset=ctx.offset),
+                )
         elif isinstance(member, jt.FieldDeclaration):
             raise ParserError(
                 "class-level fields are not supported — declare variables inside main()",
@@ -571,13 +526,12 @@ def _extract_program(tree: jt.CompilationUnit, ctx: _Ctx) -> Dict[str, Any]:
                 _line_of(member, offset=ctx.offset),
             )
 
-    if not main_found and not methods:
+    if not main_found:
         raise ParserError("no statements to execute")
 
     return {
         "kind": "program",
         "statements": statements,
-        "methods": methods,
     }
 
 

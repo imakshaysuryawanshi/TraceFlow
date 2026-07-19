@@ -7,8 +7,10 @@ import os
 import json
 import logging
 from pathlib import Path
+from typing import Optional
 
 from parser import parse as parse_java, ParserError
+from trace_generator import generate as generate_trace, TraceGenerationError
 
 
 ROOT_DIR = Path(__file__).parent
@@ -85,6 +87,47 @@ async def parse_endpoint(req: ParseRequest):
             detail={"message": e.message, "line": e.line},
         )
     return {"ok": True, "ast": ast}
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — Execution trace endpoint.
+# Parse the user's Java source and generate a trace matching the frozen v1.0
+# schema. Frontend consumes the exact same shape as /api/traces/{id}.
+# ---------------------------------------------------------------------------
+
+class ExecuteRequest(BaseModel):
+    code: str = Field(..., description="Java source to execute")
+    id: str = Field(default="user-code", description="Trace id (returned as-is)")
+    name: str = Field(default="Custom code")
+    description: str = Field(default="")
+    concept: Optional[str] = Field(default=None)
+
+
+@api_router.post("/execute")
+async def execute_endpoint(req: ExecuteRequest):
+    """Parse + generate a trace for the given source. Returns a Trace."""
+    try:
+        ast = parse_java(req.code)
+    except ParserError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"stage": "parse", "message": e.message, "line": e.line},
+        )
+    try:
+        trace = generate_trace(
+            ast,
+            id=req.id,
+            name=req.name,
+            description=req.description,
+            concept=req.concept,
+            code=req.code,
+        )
+    except TraceGenerationError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"stage": "execute", "message": e.message, "line": e.line},
+        )
+    return trace
 
 
 app.include_router(api_router)

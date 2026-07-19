@@ -1,15 +1,10 @@
-"""
-Execution Trace Generator — Phase 6 (NOT IMPLEMENTED)
-======================================================
+"""TraceFlow execution trace generator — Phase 6.
 
-Placeholder module. Will walk the simplified AST produced by
-`backend.parser` and emit a list of `Step` objects that conform EXACTLY to
-`backend.schemas.trace_schema.Step`.
-
-Contract (Phase 6 will implement):
-    generate(ast: SimplifiedAst) -> Trace
+Public exports:
+    generate(ast: dict, *, id: str, ...) -> dict  # a Trace
+    TraceGenerationError
 """
 
-# TODO(phase-6): implement trace generator.
-# Every emitted Step MUST include: step, line, variables, output, changes,
-# explanation (empty string is fine — Phase 9 fills it in).
+from .generator import generate, TraceGenerationError, MAX_STEPS
+
+__all__ = ["generate", "TraceGenerationError", "MAX_STEPS"]

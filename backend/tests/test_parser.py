@@ -41,7 +41,7 @@ def test_for_loop_sample():
     ast = parse(FOR_LOOP_SRC)
     stmts = ast["statements"]
     assert ast["kind"] == "program"
-    assert ast["methods"] == []
+    assert "methods" not in ast
     assert [s["kind"] for s in stmts] == ["var_decl", "for", "print"]
 
     var, for_stmt, print_stmt = stmts
@@ -86,44 +86,36 @@ def test_while_sample():
 
 
 # ---------------------------------------------------------------------------
-# Methods
+# Methods, calls, return — NOT SUPPORTED in the current scope
 # ---------------------------------------------------------------------------
 
-def test_method_declaration_and_call():
+def test_user_defined_methods_rejected():
     src = """\
 class Main {
-  static int add(int a, int b) {
-    return a + b;
-  }
+  static int add(int a, int b) { return a + b; }
   public static void main(String[] args) {
-    int r = add(2, 3);
+    int r = 5;
     System.out.println(r);
   }
 }
 """
-    ast = parse(src)
-    assert len(ast["methods"]) == 1
-    m = ast["methods"][0]
-    assert m["name"] == "add"
-    assert m["return_type"] == "int"
-    assert m["params"] == [{"type": "int", "name": "a"}, {"type": "int", "name": "b"}]
-    assert m["body"][0]["kind"] == "return"
-
-    call = ast["statements"][0]["value"]
-    assert call["kind"] == "call" and call["name"] == "add"
-    assert [a["value"] for a in call["args"]] == [2, 3]
+    with pytest.raises(ParserError, match="methods"):
+        parse(src)
 
 
-def test_void_method_call_statement():
-    src = """\
-class Main {
-  static void greet() { System.out.println("hi"); }
-  public static void main(String[] args) { greet(); }
-}
-"""
-    ast = parse(src)
-    assert ast["statements"][0]["kind"] == "method_call"
-    assert ast["statements"][0]["name"] == "greet"
+def test_return_statement_rejected():
+    with pytest.raises(ParserError, match="return"):
+        parse("return 1;")
+
+
+def test_method_call_rejected():
+    with pytest.raises(ParserError, match="method"):
+        parse("foo(1, 2);")
+
+
+def test_method_call_in_expr_rejected():
+    with pytest.raises(ParserError, match="method"):
+        parse("int x = foo(1);")
 
 
 # ---------------------------------------------------------------------------

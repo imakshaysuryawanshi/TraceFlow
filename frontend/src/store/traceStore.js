@@ -1,6 +1,42 @@
 import { create } from "zustand";
 import axios from "axios";
-import { saveSnippet, loadSnippet, clearSnippet } from "@/store/snippetStorage";
+import {
+  saveSnippet,
+  loadSnippet,
+  clearSnippet,
+  saveLanguage,
+  loadLanguage,
+  clearLanguage,
+} from "@/store/snippetStorage";
+
+const SAMPLE_CODES = {
+  "for-loop-sum": {
+    java:
+      "int sum = 0;\nfor (int i = 1; i <= 3; i++) {\n    sum += i;\n}\nSystem.out.println(sum);",
+    python:
+      "sum = 0\nfor i in range(1, 4):\n    sum += i\nprint(sum)",
+    javascript:
+      "let sum = 0;\nfor (let i = 1; i <= 3; i++) {\n    sum += i;\n}\nconsole.log(sum);",
+  },
+  "if-else-grade": {
+    java:
+      'int score = 72;\nif (score >= 60) {\n    System.out.println("Pass");\n} else {\n    System.out.println("Fail");\n}',
+    python:
+      'score = 72\nif score >= 60:\n    print("Pass")\nelse:\n    print("Fail")',
+    javascript:
+      'let score = 72;\nif (score >= 60) {\n    console.log("Pass");\n} else {\n    console.log("Fail");\n}',
+  },
+  "while-countdown": {
+    java:
+      "int n = 3;\nwhile (n > 0) {\n    System.out.println(n);\n    n--;\n}",
+    python:
+      "n = 3\nwhile n > 0:\n    print(n)\n    n -= 1",
+    javascript:
+      "let n = 3;\nwhile (n > 0) {\n    console.log(n);\n    n--;\n}",
+  },
+};
+
+
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -64,13 +100,25 @@ export const useTraceStore = create((set, get) => ({
     set({ traceLoading: true, error: null });
     try {
       const { data } = await axios.get(`${API}/traces/${id}`);
-      // Restore a locally saved snippet for this sample if the user had
-      // edited it in a previous session; otherwise use the sample's code.
+      // Restore persisted language preference for this sample
+      const lang = loadLanguage(data.id) || "java";
+      // Determine the appropriate code for the restored language.
+      const canonicalForLang =
+        SAMPLE_CODES[data.id]?.[lang] ?? data.code;
+      // If the user had a saved snippet delta (from a previous session)
+      // and it differs from this language's canonical, restore it;
+      // otherwise start fresh with the canonical code.
       const saved = loadSnippet(data.id);
-      const draftCode = saved != null && saved !== data.code ? saved : data.code;
+      let draftCode;
+      if (saved != null && saved !== canonicalForLang) {
+        draftCode = saved;
+      } else {
+        draftCode = canonicalForLang;
+      }
       set({
-        trace: data,
+        trace: { ...data, code: canonicalForLang },
         draftCode,
+        language: lang,
         currentStep: 0,
         traceLoading: false,
         execError: null,
@@ -101,10 +149,43 @@ export const useTraceStore = create((set, get) => ({
    * execution error and rewinds the timeline to step 0.
    */
   resetCode: () => {
-    const { trace } = get();
+    const { trace, language } = get();
     if (!trace) return;
+    const canonical = SAMPLE_CODES[trace.id]?.[language] ?? trace.code;
     clearSnippet(trace.id);
-    set({ draftCode: trace.code, currentStep: 0, execError: null });
+    clearLanguage(trace.id);
+    set({
+      draftCode: canonical,
+      trace: { ...trace, code: canonical },
+      currentStep: 0,
+      execError: null,
+    });
+  },
+
+  setLanguage: (lang) => {
+    const { trace, draftCode, language } = get();
+    if (!trace || lang === language) return;
+
+    const canonical = SAMPLE_CODES[trace.id];
+    const currentCanonical = canonical?.[language];
+    const targetCanonical = canonical?.[lang];
+
+    if (currentCanonical && targetCanonical && draftCode === currentCanonical) {
+      // User hadn't edited — swap to target language's canonical code.
+      set({
+        language: lang,
+        draftCode: targetCanonical,
+        trace: { ...trace, code: targetCanonical },
+      });
+    } else {
+      // User had modified — keep their code, just switch language.
+      set({ language: lang });
+    }
+
+    // Clear any persisted snippet — language changed so the old delta is
+    // stale. The user's in-memory draftCode is preserved either way.
+    clearSnippet(trace.id);
+    saveLanguage(trace.id, lang);
   },
 
   /**

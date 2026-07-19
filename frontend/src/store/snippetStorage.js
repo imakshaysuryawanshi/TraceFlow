@@ -7,9 +7,14 @@
  */
 
 const NS = "traceflow.snippet.";
+const LANG_NS = "traceflow.lang.";
 
 function key(sampleId) {
   return `${NS}${sampleId}`;
+}
+
+function langKey(sampleId) {
+  return `${LANG_NS}${sampleId}`;
 }
 
 export function saveSnippet(sampleId, code) {
@@ -34,6 +39,33 @@ export function clearSnippet(sampleId) {
   if (!sampleId) return;
   try {
     localStorage.removeItem(key(sampleId));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function saveLanguage(sampleId, lang) {
+  if (!sampleId) return;
+  try {
+    localStorage.setItem(langKey(sampleId), lang);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadLanguage(sampleId) {
+  if (!sampleId) return null;
+  try {
+    return localStorage.getItem(langKey(sampleId));
+  } catch {
+    return null;
+  }
+}
+
+export function clearLanguage(sampleId) {
+  if (!sampleId) return;
+  try {
+    localStorage.removeItem(langKey(sampleId));
   } catch {
     /* ignore */
   }

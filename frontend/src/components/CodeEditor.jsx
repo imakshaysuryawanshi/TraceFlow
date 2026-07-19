@@ -14,9 +14,12 @@ import { FileCode2, Pencil, RotateCcw } from "lucide-react";
  * code has not diverged from the loaded sample. Phase 5+ will POST the
  * draft code to /api/execute.
  */
+const LANG_LABELS = { java: "Java", python: "Python", javascript: "JavaScript" };
+
 export default function CodeEditor() {
   const trace = useTraceStore((s) => s.trace);
   const draftCode = useTraceStore((s) => s.draftCode);
+  const language = useTraceStore((s) => s.language);
   const setDraftCode = useTraceStore((s) => s.setDraftCode);
   const resetCode = useTraceStore((s) => s.resetCode);
   const currentStep = useTraceStore(selectCurrentStep);
@@ -102,7 +105,7 @@ export default function CodeEditor() {
         </span>
         {trace && (
           <span className="text-[11px] text-[hsl(var(--tf-text-dim))] mono ml-1 truncate">
-            · {trace.name} · Java
+            · {trace.name} · {LANG_LABELS[language] ?? "Java"}
           </span>
         )}
         <span className="ml-auto flex items-center gap-2">
@@ -132,8 +135,8 @@ export default function CodeEditor() {
       <div className="flex-1 min-h-0" data-testid={TF.monacoEditor}>
         <Editor
           height="100%"
-          defaultLanguage="java"
-          language="java"
+          key={language}
+          language={language}
           value={draftCode}
           onChange={(v) => setDraftCode(v ?? "")}
           onMount={handleMount}

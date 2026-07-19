@@ -3,7 +3,14 @@ import {
   selectCodeDirty,
 } from "@/store/traceStore";
 import { TF } from "@/constants/testIds";
-import { Waypoints, ChevronDown, Play, Braces, Loader2 } from "lucide-react";
+import {
+  Waypoints,
+  ChevronDown,
+  Play,
+  Braces,
+  Loader2,
+  Globe,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -14,10 +21,18 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+const LANGUAGES = [
+  { id: "java", label: "Java" },
+  { id: "python", label: "Python" },
+  { id: "javascript", label: "JavaScript" },
+];
+
 export default function TopBar() {
   const samples = useTraceStore((s) => s.samples);
   const trace = useTraceStore((s) => s.trace);
+  const language = useTraceStore((s) => s.language);
   const loadTrace = useTraceStore((s) => s.loadTrace);
+  const setLanguage = useTraceStore((s) => s.setLanguage);
   const runTrace = useTraceStore((s) => s.runTrace);
   const resetCode = useTraceStore((s) => s.resetCode);
   const running = useTraceStore((s) => s.running);
@@ -106,6 +121,41 @@ export default function TopBar() {
                     {s.description}
                   </span>
                 </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Language selector */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            data-testid="language-selector"
+            className="group flex items-center gap-2 h-8 px-2.5 rounded-md border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel-2))] hover:border-[hsl(var(--tf-accent))]/50 transition-colors"
+          >
+            <Globe className="w-3.5 h-3.5 text-[hsl(var(--tf-text-muted))] group-hover:text-[hsl(var(--tf-accent))]" />
+            <span className="mono text-[12.5px] text-[hsl(var(--tf-text))]">
+              {LANGUAGES.find((l) => l.id === language)?.label ?? "Java"}
+            </span>
+            <ChevronDown className="w-3 h-3 text-[hsl(var(--tf-text-muted))] group-hover:text-[hsl(var(--tf-accent))]" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-40 bg-[hsl(var(--tf-panel-2))] border-[hsl(var(--tf-border-strong))]"
+          >
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-[hsl(var(--tf-text-dim))]">
+              Language
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-[hsl(var(--tf-border))]" />
+            {LANGUAGES.map((l) => (
+              <DropdownMenuItem
+                key={l.id}
+                data-testid={`lang-${l.id}`}
+                onSelect={() => setLanguage(l.id)}
+                className={`cursor-pointer focus:bg-[hsl(var(--tf-accent))]/10 focus:text-[hsl(var(--tf-text))] py-1.5 ${
+                  l.id === language ? "text-[hsl(var(--tf-accent))]" : ""
+                }`}
+              >
+                {l.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

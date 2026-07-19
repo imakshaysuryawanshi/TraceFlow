@@ -1,7 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 import os
 import json
@@ -16,10 +15,7 @@ from trace_generator import generate as generate_trace, TraceGenerationError
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection (kept for future phases; not used in Phase 1-4)
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+
 
 app = FastAPI(title="TraceFlow API")
 api_router = APIRouter(prefix="/api")
@@ -144,6 +140,4 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+

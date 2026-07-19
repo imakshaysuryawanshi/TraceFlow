@@ -123,15 +123,19 @@
     border: 2px solid transparent;
 }
 
-/* --- Monaco highlight line --- */
+/* --- Monaco highlight line — bright + soft glow --- */
 .tf-current-line {
-    background: hsl(var(--tf-accent) / 0.12) !important;
-    box-shadow: inset 2px 0 0 0 hsl(var(--tf-accent));
+    background: hsl(var(--tf-accent) / 0.16) !important;
+    box-shadow:
+        inset 3px 0 0 0 hsl(var(--tf-accent)),
+        0 0 22px 0 hsl(var(--tf-accent) / 0.08);
 }
 .tf-current-line-glyph {
     background: hsl(var(--tf-accent)) !important;
-    width: 3px !important;
+    width: 4px !important;
     margin-left: 4px;
+    box-shadow: 0 0 10px hsl(var(--tf-accent) / 0.75);
+    border-radius: 2px;
 }
 
 /* --- Utility --- */
@@ -155,18 +159,64 @@
     0% {
         background-color: hsl(var(--tf-accent) / 0);
         border-color: hsl(var(--tf-border));
+        transform: scale(1);
     }
-    30% {
-        background-color: hsl(var(--tf-accent) / 0.18);
-        border-color: hsl(var(--tf-accent) / 0.7);
+    25% {
+        background-color: hsl(var(--tf-accent) / 0.22);
+        border-color: hsl(var(--tf-accent));
+        transform: scale(1.04);
+        box-shadow: 0 0 0 4px hsl(var(--tf-accent) / 0.14);
     }
     100% {
         background-color: hsl(var(--tf-accent) / 0);
         border-color: hsl(var(--tf-border));
+        transform: scale(1);
+        box-shadow: 0 0 0 0 hsl(var(--tf-accent) / 0);
     }
 }
 .tf-flash {
-    animation: tf-flash 900ms ease-out;
+    animation: tf-flash 1050ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+}
+
+/* Value roll-in used when a variable value changes */
+@keyframes tf-value-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+        filter: blur(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+.tf-value-in {
+    animation: tf-value-in 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Previous value slides down and fades */
+@keyframes tf-value-out {
+    from {
+        opacity: 0.55;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+.tf-value-out {
+    animation: tf-value-out 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tf-step-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+}
+.tf-step-pulse {
+    animation: tf-step-pulse 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes tf-fade-in {

@@ -6,6 +6,7 @@ import ExecutionPanel from "@/components/ExecutionPanel";
 import AIExplanation from "@/components/AIExplanation";
 import OutputConsole from "@/components/OutputConsole";
 import TimelineControls from "@/components/TimelineControls";
+import StepsStrip from "@/components/StepsStrip";
 import TraceInspector from "@/components/TraceInspector";
 import { useTraceStore } from "@/store/traceStore";
 
@@ -80,6 +81,7 @@ function App() {
       {/* Timeline + Output console */}
       <div className="border-t border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))]">
         <TimelineControls />
+        <StepsStrip />
         <OutputConsole />
       </div>
 

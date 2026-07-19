@@ -1,8 +1,11 @@
 import { TF } from "@/constants/testIds";
 
 /**
- * A single variable card showing name, current value, and (when changed on
- * this step) the previous value + a subtle flash animation.
+ * A single variable card.
+ * When `changed` is true:
+ *   - the card runs a flash + scale-bump (tf-flash)
+ *   - the new value slides in from above (tf-value-in)
+ *   - the previous value fades below as "was N"
  */
 export default function VariableCard({
   name,
@@ -16,10 +19,10 @@ export default function VariableCard({
       data-testid={TF.variableCard(name)}
       // stepKey remounts the node so the flash animation replays on change
       key={changed ? `${name}-${stepKey}` : name}
-      className={`relative rounded-md border p-2.5 bg-[hsl(var(--tf-panel))] transition-colors ${
+      className={`relative rounded-md border p-2.5 bg-[hsl(var(--tf-panel))] overflow-hidden ${
         changed
           ? "border-[hsl(var(--tf-accent))]/60 tf-flash"
-          : "border-[hsl(var(--tf-border))]"
+          : "border-[hsl(var(--tf-border))] transition-colors"
       }`}
     >
       <div className="flex items-center justify-between mb-1">
@@ -35,14 +38,22 @@ export default function VariableCard({
           </span>
         )}
       </div>
-      <div className="mono text-[16px] font-semibold text-[hsl(var(--tf-text))] leading-none">
+      <div
+        key={`v-${stepKey}`}
+        className={`mono text-[18px] font-semibold text-[hsl(var(--tf-text))] leading-none tabular-nums ${
+          changed ? "tf-value-in" : ""
+        }`}
+      >
         {String(value)}
       </div>
       {changed && previousValue !== undefined && (
-        <div className="mt-1.5 mono text-[10.5px] text-[hsl(var(--tf-text-dim))]">
-          was <span className="text-[hsl(var(--tf-text-muted))]">
+        <div className="mt-2 flex items-center gap-1.5 mono text-[10.5px] text-[hsl(var(--tf-text-dim))]">
+          <span>was</span>
+          <span className="text-[hsl(var(--tf-text-muted))] line-through decoration-[hsl(var(--tf-text-dim))]/60">
             {String(previousValue)}
           </span>
+          <span className="text-[hsl(var(--tf-accent))]">→</span>
+          <span className="text-[hsl(var(--tf-accent))]">{String(value)}</span>
         </div>
       )}
     </div>

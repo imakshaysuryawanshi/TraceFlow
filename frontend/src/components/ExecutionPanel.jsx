@@ -1,11 +1,14 @@
+import { useMemo } from "react";
 import {
   useTraceStore,
   selectCurrentStep,
   selectPrevStep,
 } from "@/store/traceStore";
 import { TF } from "@/constants/testIds";
-import { diffChangedVars } from "@/schemas/traceSchema";
+import { diffChangedVars, computeLoopContexts } from "@/schemas/traceSchema";
 import VariableCard from "@/components/VariableCard";
+import StepIndicator from "@/components/StepIndicator";
+import LoopIndicator from "@/components/LoopIndicator";
 import { Activity, GitCommit, Zap } from "lucide-react";
 
 /**
@@ -22,6 +25,8 @@ export default function ExecutionPanel() {
   const prev = useTraceStore(selectPrevStep);
   const currentStepIdx = useTraceStore((s) => s.currentStep);
 
+  const loopCtx = useMemo(() => computeLoopContexts(trace), [trace]);
+
   if (!trace || !step) {
     return (
       <div className="h-full flex items-center justify-center text-[hsl(var(--tf-text-dim))] text-sm">
@@ -32,15 +37,11 @@ export default function ExecutionPanel() {
 
   const variables = step.variables || {};
   const varEntries = Object.entries(variables);
-  // Derived from canonical `variables` snapshot — NOT reliant on any
-  // optional trace field.
   const changedSet = diffChangedVars(step, prev);
+  const currentLoop = loopCtx.get(currentStepIdx) || null;
 
   return (
-    <div
-      data-testid={TF.executionPanel}
-      className="h-full flex flex-col"
-    >
+    <div data-testid={TF.executionPanel} className="h-full flex flex-col">
       {/* Header */}
       <div className="h-9 flex items-center gap-2 px-3 border-b border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))] shrink-0">
         <Activity className="w-3.5 h-3.5 text-[hsl(var(--tf-text-muted))]" />
@@ -53,50 +54,60 @@ export default function ExecutionPanel() {
         >
           step {currentStepIdx + 1}
           <span className="text-[hsl(var(--tf-text-dim))]">
-            {" "}
-            / {trace.steps.length}
+            {" "}/ {trace.steps.length}
           </span>
         </span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {/* Current step banner */}
-        <div
-          key={`banner-${currentStepIdx}`}
-          className="tf-fade-in rounded-md border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel))] p-3.5"
-        >
-          <div className="flex items-center gap-2 mb-1.5">
-            {step.kind && <StepKindBadge kind={step.kind} />}
-            <span
-              className="text-[11px] mono text-[hsl(var(--tf-text-muted))]"
-              data-testid={TF.currentLineIndicator}
-            >
-              line {step.line}
-            </span>
-          </div>
-          <div className="mono text-[13.5px] text-[hsl(var(--tf-text))] leading-relaxed">
-            {step.label || (step.changes && step.changes[0]) || `step ${step.step}`}
-          </div>
-          {step.condition && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-[10.5px] uppercase tracking-wider text-[hsl(var(--tf-text-dim))]">
-                condition
-              </span>
-              <span className="mono text-[12px] text-[hsl(var(--tf-text-muted))]">
-                {step.condition}
-              </span>
+        {/* Prominent step indicator + current-step banner */}
+        <div className="flex items-stretch gap-3">
+          <StepIndicator current={currentStepIdx + 1} total={trace.steps.length} />
+          <div
+            key={`banner-${currentStepIdx}`}
+            className="tf-fade-in flex-1 min-w-0 rounded-md border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel))] p-3"
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              {step.kind && <StepKindBadge kind={step.kind} />}
               <span
-                className={`text-[10.5px] mono px-1.5 py-0.5 rounded ${
-                  step.condition_result
-                    ? "text-[hsl(var(--tf-success))] bg-[hsl(var(--tf-success))]/10"
-                    : "text-[hsl(var(--tf-danger))] bg-[hsl(var(--tf-danger))]/10"
-                }`}
+                className="text-[11px] mono text-[hsl(var(--tf-text-muted))]"
+                data-testid={TF.currentLineIndicator}
               >
-                {String(step.condition_result)}
+                line {step.line}
               </span>
             </div>
-          )}
+            <div className="mono text-[13.5px] text-[hsl(var(--tf-text))] leading-relaxed break-words">
+              {step.label || (step.changes && step.changes[0]) || `step ${step.step}`}
+            </div>
+            {step.condition && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span className="text-[10.5px] uppercase tracking-wider text-[hsl(var(--tf-text-dim))]">
+                  condition
+                </span>
+                <span className="mono text-[12px] text-[hsl(var(--tf-text-muted))]">
+                  {step.condition}
+                </span>
+                <span
+                  className={`text-[10.5px] mono px-1.5 py-0.5 rounded ${
+                    step.condition_result
+                      ? "text-[hsl(var(--tf-success))] bg-[hsl(var(--tf-success))]/10"
+                      : "text-[hsl(var(--tf-danger))] bg-[hsl(var(--tf-danger))]/10"
+                  }`}
+                >
+                  {String(step.condition_result)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Loop iteration badge */}
+        {currentLoop && (
+          <LoopIndicator
+            key={`loop-${currentLoop.iteration}-${currentLoop.condition}`}
+            context={currentLoop}
+          />
+        )}
 
         {/* Variables */}
         <div>
@@ -184,7 +195,7 @@ function WhatChanged({ step, prev }) {
             <li
               key={i}
               data-testid={TF.changeItem(i)}
-              className="flex items-start gap-2 text-[12.5px] text-[hsl(var(--tf-text))]"
+              className="tf-fade-in flex items-start gap-2 text-[12.5px] text-[hsl(var(--tf-text))]"
             >
               <span className="mt-1 w-1 h-1 rounded-full bg-[hsl(var(--tf-accent))] shrink-0" />
               <span className="mono leading-relaxed">{c}</span>

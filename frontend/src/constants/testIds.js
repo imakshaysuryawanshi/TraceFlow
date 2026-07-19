@@ -22,10 +22,17 @@ export const TF = {
   btnReplay: "btn-replay",
   timelineProgress: "timeline-progress",
   timelineStepLabel: "timeline-step-label",
+  stripToggle: "strip-toggle",
+  stepsStrip: "steps-strip",
+  stripChip: (i) => `strip-chip-${i}`,
 
   // Execution
   currentLineIndicator: "current-line-indicator",
   currentStepBadge: "current-step-badge",
+  stepIndicator: "step-indicator",
+  stepIndicatorNumber: "step-indicator-number",
+  loopIndicator: "loop-indicator",
+  loopIterationNumber: "loop-iteration-number",
   variableCard: (name) => `variable-card-${name}`,
   variableChangedBadge: (name) => `variable-changed-${name}`,
   whatChanged: "what-changed-block",

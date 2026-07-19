@@ -83,3 +83,58 @@ export function validateStep(step) {
   }
   return problems;
 }
+
+
+/**
+ * Compute per-step loop context. For each step index inside a loop body,
+ * returns { iteration, total, condition }.
+ *
+ * Heuristic: any `condition` step whose (line + condition text) is repeated
+ * across the trace is treated as a loop guard. All steps from a true
+ * evaluation up to (but not including) the next evaluation of the same
+ * guard belong to that iteration.
+ *
+ * Works for both `for` and `while` loops in the current mock schema and any
+ * future parser-emitted trace that follows the same conventions.
+ *
+ * @param {Trace|null} trace
+ * @returns {Map<number, {iteration:number, total:number, condition:string}>}
+ */
+export function computeLoopContexts(trace) {
+  const ctx = new Map();
+  if (!trace) return ctx;
+
+  // Group condition steps by (line, condition text).
+  const groups = new Map();
+  trace.steps.forEach((s, idx) => {
+    if (s.kind === "condition" && s.condition) {
+      const key = `${s.line}::${s.condition}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ idx, result: !!s.condition_result });
+    }
+  });
+
+  for (const [key, evals] of groups.entries()) {
+    if (evals.length < 2) continue; // if/else has exactly one eval — not a loop
+    const total = evals.filter((e) => e.result).length;
+    const condition = key.split("::").slice(1).join("::");
+    let iteration = 0;
+
+    for (let i = 0; i < evals.length; i++) {
+      const cur = evals[i];
+      const next = evals[i + 1];
+      if (!cur.result) continue; // exit eval — no iteration to assign
+      iteration += 1;
+      const rangeEnd = next ? next.idx : trace.steps.length;
+      for (let j = cur.idx; j < rangeEnd; j++) {
+        // Only overwrite if a nested loop hasn't already claimed this step.
+        if (!ctx.has(j)) {
+          ctx.set(j, { iteration, total, condition });
+        }
+      }
+    }
+  }
+
+  return ctx;
+}
+

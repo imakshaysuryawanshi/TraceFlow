@@ -36,6 +36,7 @@ export const useTraceStore = create((set, get) => ({
 
   // Dev tools
   inspectorOpen: false,
+  stripExpanded: false,
 
   // ---------- catalog ----------
   loadSamples: async () => {
@@ -136,6 +137,7 @@ export const useTraceStore = create((set, get) => ({
   // ---------- dev tools ----------
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   closeInspector: () => set({ inspectorOpen: false }),
+  toggleStrip: () => set((s) => ({ stripExpanded: !s.stripExpanded })),
 }));
 
 // ---------- derived selectors (pure helpers) ----------

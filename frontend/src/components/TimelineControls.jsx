@@ -11,6 +11,8 @@ import {
   Pause,
   RotateCcw,
   Gauge,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const SPEEDS = [
@@ -38,6 +40,8 @@ export default function TimelineControls() {
   const total = trace?.steps.length ?? 0;
   const atStart = currentStep === 0;
   const atEnd = trace ? currentStep === total - 1 : true;
+  const stripExpanded = useTraceStore((s) => s.stripExpanded);
+  const toggleStrip = useTraceStore((s) => s.toggleStrip);
 
   return (
     <div
@@ -147,6 +151,25 @@ export default function TimelineControls() {
             </button>
           ))}
         </div>
+
+        {/* Strip toggle */}
+        <button
+          data-testid={TF.stripToggle}
+          onClick={toggleStrip}
+          title={stripExpanded ? "Collapse steps timeline" : "Expand steps timeline"}
+          className={`ml-1 flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] mono transition-colors ${
+            stripExpanded
+              ? "border-[hsl(var(--tf-accent))]/50 text-[hsl(var(--tf-accent))] bg-[hsl(var(--tf-accent))]/10"
+              : "border-[hsl(var(--tf-border-strong))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))]"
+          }`}
+        >
+          {stripExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronUp className="w-3.5 h-3.5" />
+          )}
+          <span>steps</span>
+        </button>
       </div>
     </div>
   );

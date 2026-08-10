@@ -126,9 +126,12 @@ export default function TimelineControls() {
               / {String(total).padStart(2, "0")}
             </span>
             {step && (
-              <span className="ml-3 text-[hsl(var(--tf-text-dim))]">
-                line {step.line}
-              </span>
+              <>
+                <span className="mx-1.5 text-[hsl(var(--tf-text-dim))] select-none">·</span>
+                <span className="text-[hsl(var(--tf-text-dim))]">
+                  line {step.line}
+                </span>
+              </>
             )}
           </div>
         </div>

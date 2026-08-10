@@ -67,6 +67,26 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [next, prev, toggleInspector, closeInspector]);
 
+  // Layout persistence
+  const layoutKey = "traceflow.layout";
+  let defaultLayout = [40, 35, 25];
+  try {
+    const saved = localStorage.getItem(layoutKey);
+    if (saved) {
+      defaultLayout = JSON.parse(saved);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const onLayout = (sizes) => {
+    try {
+      localStorage.setItem(layoutKey, JSON.stringify(sizes));
+    } catch (e) {
+      // ignore
+    }
+  };
+
   return (
     <div className="App flex flex-col bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))]">
       <TopBar />
@@ -75,8 +95,9 @@ function App() {
       <ResizablePanelGroup
         direction="horizontal"
         className="flex-1 bg-[hsl(var(--tf-border))]"
+        onLayout={onLayout}
       >
-        <ResizablePanel defaultSize={40} minSize={20}>
+        <ResizablePanel defaultSize={defaultLayout[0]} minSize={20}>
           <div className="h-full bg-[hsl(var(--tf-bg))]">
             <CodeEditor />
           </div>
@@ -84,7 +105,7 @@ function App() {
 
         <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
 
-        <ResizablePanel defaultSize={35} minSize={20}>
+        <ResizablePanel defaultSize={defaultLayout[1]} minSize={20}>
           <div className="h-full bg-[hsl(var(--tf-bg))] tf-grid-bg">
             <ExecutionPanel />
           </div>
@@ -92,7 +113,7 @@ function App() {
 
         <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
 
-        <ResizablePanel defaultSize={25} minSize={15}>
+        <ResizablePanel defaultSize={defaultLayout[2]} minSize={15}>
           <div className="h-full bg-[hsl(var(--tf-bg))]">
             <AIExplanation />
           </div>

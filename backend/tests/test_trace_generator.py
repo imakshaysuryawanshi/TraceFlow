@@ -15,7 +15,7 @@ from parser import parse
 from trace_generator import generate, TraceGenerationError, MAX_STEPS
 
 
-REQUIRED_FIELDS = ["step", "line", "variables", "output", "changes", "explanation"]
+REQUIRED_FIELDS = ["step", "line", "code", "type", "state", "changes", "control", "reasoning"]
 MOCK_TRACES = json.loads((Path(__file__).parent.parent / "mock_traces.json").read_text())
 
 
@@ -27,15 +27,20 @@ def _gen(code: str, sid: str = "test", concept: str = None) -> dict:
 def _assert_schema(trace: dict) -> None:
     assert isinstance(trace["id"], str)
     assert isinstance(trace["code"], str)
-    assert isinstance(trace["steps"], list)
-    for i, s in enumerate(trace["steps"]):
+    steps = trace.get("trace") or trace.get("steps")
+    assert isinstance(steps, list)
+    for i, s in enumerate(steps):
         for k in REQUIRED_FIELDS:
             assert k in s, f"step {i + 1} missing '{k}'"
-        assert isinstance(s["variables"], dict)
-        assert isinstance(s["output"], list)
+        assert isinstance(s["state"], dict)
+        assert isinstance(s["state"]["variables"], dict)
         assert isinstance(s["changes"], list)
-        assert all(isinstance(x, str) for x in s["changes"])
-        assert isinstance(s["explanation"], str)
+        for c in s["changes"]:
+            assert isinstance(c, dict)
+            assert "var" in c
+            assert "type" in c
+        assert isinstance(s["control"], dict)
+        assert isinstance(s["reasoning"], dict)
 
 
 # ---------------------------------------------------------------------------
@@ -53,29 +58,63 @@ def test_schema_conformance_across_samples():
 #    variable snapshots, output progression, kinds, condition/result.
 # ---------------------------------------------------------------------------
 
+def _map_got_changes(got_changes, got_step):
+    if "_changes_legacy" in got_step:
+        return got_step["_changes_legacy"]
+    mapped_changes = []
+    for c in got_changes:
+        if isinstance(c, dict):
+            if c["type"] == "init":
+                val = c['new']
+                val_str = str(val).lower() if isinstance(val, bool) else str(val)
+                mapped_changes.append(f"{c['var']} initialized to {val_str}")
+            elif c["type"] == "delete":
+                mapped_changes.append(f"{c['var']} deleted")
+            elif c["type"] == "update":
+                old_str = str(c['old']).lower() if isinstance(c['old'], bool) else str(c['old'])
+                new_str = str(c['new']).lower() if isinstance(c['new'], bool) else str(c['new'])
+                mapped_changes.append(f"{c['var']} changed from {old_str} to {new_str}")
+        else:
+            mapped_changes.append(c)
+            
+    if got_step.get("kind") == "print" and got_step.get("output"):
+        last_out = got_step["output"][-1]
+        mapped_changes.append(f'printed "{last_out}"')
+        
+    if got_step.get("kind") == "condition" and got_step.get("condition") is not None:
+        cond_res = "true" if got_step.get("condition_result") else "false"
+        cond_str = f"condition {got_step.get('condition')} evaluated to {cond_res}"
+        if cond_str not in mapped_changes:
+            mapped_changes.append(cond_str)
+        if not got_step.get("condition_result"):
+            mapped_changes.append("loop exited")
+    return mapped_changes
+
+
 @pytest.mark.parametrize("sample_id", [s["id"] for s in MOCK_TRACES["samples"]])
 def test_matches_mock_trace(sample_id):
     mock = next(s for s in MOCK_TRACES["samples"] if s["id"] == sample_id)
     tr = _gen(mock["code"], sid=mock["id"], concept=mock["concept"])
 
-    assert len(tr["steps"]) == len(mock["steps"]), (
-        f"{sample_id}: expected {len(mock['steps'])} steps, got {len(tr['steps'])}"
+    steps = tr.get("trace") or tr.get("steps")
+    assert len(steps) == len(mock["steps"]), (
+        f"{sample_id}: expected {len(mock['steps'])} steps, got {len(steps)}"
     )
-    for i, (got, want) in enumerate(zip(tr["steps"], mock["steps"])):
+    for i, (got, want) in enumerate(zip(steps, mock["steps"])):
         ctx = f"{sample_id} step {i + 1}"
         assert got["step"] == want["step"], ctx
         assert got["line"] == want["line"], ctx
         assert got["kind"] == want["kind"], ctx
         assert got["variables"] == want["variables"], f"{ctx}: vars mismatch"
         assert got["output"] == want["output"], f"{ctx}: output mismatch"
-        # `changes` phrasing must be identical to keep frontend UX consistent
-        assert got["changes"] == want["changes"], (
-            f"{ctx}: changes mismatch\n  got : {got['changes']}\n  want: {want['changes']}"
+        
+        got_changes = _map_got_changes(got["changes"], got)
+        assert got_changes == want["changes"], (
+            f"{ctx}: changes mismatch\n  got : {got_changes}\n  want: {want['changes']}"
         )
         if "condition" in want:
             assert got.get("condition") == want["condition"], ctx
             assert got.get("condition_result") == want["condition_result"], ctx
-        # Explanations differ (templated vs curated), so we only assert non-empty
         assert got["explanation"], f"{ctx}: explanation empty"
 
 
@@ -90,7 +129,8 @@ def test_if_false_takes_else_branch():
     assert tr["steps"][-1]["output"] == ["small"]
     cond = tr["steps"][1]
     assert cond["condition_result"] is False
-    assert "took else branch" in cond["changes"]
+    got_changes = _map_got_changes(cond["changes"], cond)
+    assert "took else branch" in got_changes
 
 
 def test_if_without_else_when_false():

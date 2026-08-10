@@ -44,6 +44,9 @@ export default function TraceInspector() {
       data-testid={TF.inspector}
     >
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Trace Inspector"
         className="w-[540px] max-w-[90vw] h-full bg-[hsl(var(--tf-panel))] border-l border-[hsl(var(--tf-border-strong))] flex flex-col shadow-2xl tf-fade-in"
         onClick={(e) => e.stopPropagation()}
       >

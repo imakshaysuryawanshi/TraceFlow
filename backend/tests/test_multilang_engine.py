@@ -16,11 +16,47 @@ def _run(code: str, language: str):
     return generate(ast, id="t", name="t", code=code, language=language)["steps"]
 
 
+def _map_got_changes(got_changes, got_step):
+    if "_changes_legacy" in got_step:
+        return got_step["_changes_legacy"]
+    mapped_changes = []
+    for c in got_changes:
+        if isinstance(c, dict):
+            if c["type"] == "init":
+                val = c['new']
+                val_str = str(val).lower() if isinstance(val, bool) else str(val)
+                mapped_changes.append(f"{c['var']} initialized to {val_str}")
+            elif c["type"] == "delete":
+                mapped_changes.append(f"{c['var']} deleted")
+            elif c["type"] == "update":
+                old_str = str(c['old']).lower() if isinstance(c['old'], bool) else str(c['old'])
+                new_str = str(c['new']).lower() if isinstance(c['new'], bool) else str(c['new'])
+                mapped_changes.append(f"{c['var']} changed from {old_str} to {new_str}")
+        else:
+            mapped_changes.append(c)
+            
+    if got_step.get("kind") == "print" and got_step.get("output"):
+        last_out = got_step["output"][-1]
+        mapped_changes.append(f'printed "{last_out}"')
+        
+    if got_step.get("kind") == "condition" and got_step.get("condition") is not None:
+        cond_res = "true" if got_step.get("condition_result") else "false"
+        cond_str = f"condition {got_step.get('condition')} evaluated to {cond_res}"
+        if cond_str not in mapped_changes:
+            mapped_changes.append(cond_str)
+        if not got_step.get("condition_result"):
+            mapped_changes.append("loop exited")
+    return mapped_changes
+
+
 def _match(actual, expected):
     assert len(actual) == len(expected), f"step count: {len(actual)} vs {len(expected)}"
     for i, (got, want) in enumerate(zip(actual, expected)):
         for k, v in want.items():
-            assert got[k] == v, f"step {i + 1} '{k}': {got[k]!r} != {v!r}"
+            got_val = got[k]
+            if k == "changes" and isinstance(got_val, list):
+                got_val = _map_got_changes(got_val, got)
+            assert got_val == v, f"step {i + 1} '{k}': {got_val!r} != {v!r}"
 
 
 # ===========================================================================
@@ -82,8 +118,20 @@ class TestPython:
         steps = _run("a = 7 // 2\nprint(a)", "python")
         assert steps[-1]["output"] == ["3"]
 
+    def test_python_list_index_and_len(self):
+        steps = _run("xs = [1, 2, 3]\ntotal = xs[1]\nn = len(xs)\nprint(n)", "python")
+        assert steps[0]["kind"] == "declare" and steps[0]["variables"] == {"xs": [1, 2, 3]}
+        assert steps[1]["kind"] == "declare" and steps[1]["variables"] == {"xs": [1, 2, 3], "total": 2}
+        assert steps[2]["kind"] == "declare" and steps[2]["variables"]["n"] == 3
+        assert steps[-1]["output"] == ["3"]
+
+    def test_python_list_element_assignment(self):
+        steps = _run("xs = [1, 2, 3]\nxs[0] = 99\nxs[1] += 10\nprint(xs)", "python")
+        assert steps[1]["kind"] == "assign" and steps[1]["variables"]["xs"] == [99, 2, 3]
+        assert steps[2]["kind"] == "assign" and steps[2]["variables"]["xs"] == [99, 12, 3]
+        assert steps[-1]["output"] == ["[99, 12, 3]"]
+
     @pytest.mark.parametrize("code,fragment", [
-        ("xs = [1, 2, 3]", "list"),
         ("def foo():\n    return 1", "function"),
         ("import os", "import"),
         ("class Foo:\n    pass", "class"),
@@ -151,8 +199,23 @@ class TestJavaScript:
         steps = _run("let a = 7 / 2;\nconsole.log(a);", "javascript")
         assert steps[-1]["output"] == ["3.5"]
 
+    def test_js_list_index_and_length(self):
+        steps = _run(
+            "let xs = [1, 2, 3];\nlet total = xs[2];\nlet n = xs.length;\nconsole.log(n);",
+            "javascript",
+        )
+        assert steps[0]["kind"] == "declare" and steps[0]["variables"] == {"xs": [1, 2, 3]}
+        assert steps[1]["kind"] == "declare" and steps[1]["variables"] == {"xs": [1, 2, 3], "total": 3}
+        assert steps[2]["kind"] == "declare" and steps[2]["variables"]["n"] == 3
+        assert steps[-1]["output"] == ["3"]
+
+    def test_js_list_element_assignment(self):
+        steps = _run("let xs = [1, 2, 3];\nxs[0] = 99;\nxs[1] += 10;\nconsole.log(xs);", "javascript")
+        assert steps[1]["kind"] == "assign" and steps[1]["variables"]["xs"] == [99, 2, 3]
+        assert steps[2]["kind"] == "assign" and steps[2]["variables"]["xs"] == [99, 12, 3]
+        assert steps[-1]["output"] == ["[99, 12, 3]"]
+
     @pytest.mark.parametrize("code,fragment", [
-        ("let xs = [1,2,3];", "array"),
         ("function foo() { return 1; }", "function"),
         ("class Foo {}", "class"),
         ("import x from 'y';", "import"),

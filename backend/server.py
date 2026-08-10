@@ -7,6 +7,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional
+import ast
 
 from parser import parse as parse_source, ParserError
 from trace_generator import generate as generate_trace, TraceGenerationError
@@ -52,12 +53,118 @@ async def list_traces():
     ]
 
 
+def _map_legacy_step(s: dict) -> dict:
+    if "state" in s and "reasoning" in s:
+        return s
+    
+    legacy_changes = s.get("changes", [])
+    structured_changes = []
+    for c in legacy_changes:
+        if isinstance(c, str):
+            if "initialized to" in c:
+                parts = c.split("initialized to")
+                var = parts[0].strip()
+                try:
+                    val = ast.literal_eval(parts[1].strip())
+                except:
+                    val = parts[1].strip()
+                structured_changes.append({"var": var, "old": None, "new": val, "type": "init"})
+            elif "changed from" in c:
+                parts = c.split("changed from")
+                var = parts[0].strip()
+                subparts = parts[1].split("to")
+                try:
+                    old_val = ast.literal_eval(subparts[0].strip())
+                    new_val = ast.literal_eval(subparts[1].strip())
+                except:
+                    old_val = subparts[0].strip()
+                    new_val = subparts[1].strip()
+                structured_changes.append({"var": var, "old": old_val, "new": new_val, "type": "update"})
+            else:
+                structured_changes.append({"var": "unknown", "old": None, "new": c, "type": "update"})
+        elif isinstance(c, dict):
+            structured_changes.append(c)
+    
+    explanation = s.get("explanation", "")
+    why_executed = "Sequential execution"
+    condition = s.get("condition")
+    condition_result = s.get("condition_result")
+    if condition:
+        why_executed = "Condition evaluated as " + ("true" if condition_result else "false")
+
+    mapped = {
+        "step": s.get("step", 1),
+        "line": s.get("line", 1),
+        "code": s.get("label", "").split("→")[0].strip() or "/* code */",
+        "type": s.get("kind", "declare"),
+        "state": {
+            "variables": s.get("variables", {}),
+            "memory": {},
+            "call_stack": []
+        },
+        "changes": structured_changes,
+        "control": {
+            "block": "main",
+            "iteration": s.get("step", 1) if condition else None,  # simple dynamic iteration fallback
+            "condition": condition,
+            "result": condition_result
+        },
+        "reasoning": {
+            "explanation": explanation,
+            "why_executed": why_executed,
+            "next_expected": "next statement"
+        },
+        "warnings": [],
+        "variables": s.get("variables", {}),
+        "output": s.get("output", []),
+        "explanation": explanation,
+        "kind": s.get("kind", "declare"),
+        "label": s.get("label", ""),
+    }
+    if condition is not None:
+        mapped["condition"] = condition
+        mapped["condition_result"] = condition_result
+    return mapped
+
+
 @api_router.get("/traces/{trace_id}")
 async def get_trace(trace_id: str):
     """Return a full trace (code + steps) by id."""
     data = _load_traces()
     for t in data["samples"]:
         if t["id"] == trace_id:
+            # Map steps to final unified schema dynamically
+            t["steps"] = [_map_legacy_step(s) for s in t.get("steps", [])]
+            
+            # Enrich static mock trace with dynamic patterns
+            from trace_generator.pattern_detector import detect_patterns
+            patterns_data = detect_patterns(t["steps"])
+            t["patterns"] = patterns_data.get("patterns", [])
+            t["signals"] = patterns_data.get("signals", [])
+            
+            # Form unified schema wrappers on mock traces too
+            import datetime
+            initial_params = {}
+            if t["steps"]:
+                initial_params = t["steps"][0].get("state", {}).get("variables", {})
+            t["meta"] = {
+                "language": t.get("language", "java"),
+                "execution_id": trace_id,
+                "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                "total_steps": len(t["steps"])
+            }
+            t["input"] = {
+                "params": initial_params,
+                "stdin": None
+            }
+            t["trace"] = t["steps"]
+            t["summary"] = {
+                "final_state": t["steps"][-1].get("state", {}).get("variables", {}) if t["steps"] else {},
+                "complexity": {
+                    "time": "O(n)" if "Nested Loops" not in [p.get("name") for p in t["patterns"]] else "O(n^2)",
+                    "space": "O(1)"
+                }
+            }
             return t
     raise HTTPException(status_code=404, detail=f"Trace '{trace_id}' not found")
 

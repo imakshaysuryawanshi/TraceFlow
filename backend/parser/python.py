@@ -111,18 +111,48 @@ def _expr(node: ast.AST, ctx: _Ctx) -> Dict[str, Any]:
         return _bool_op(node, ctx, line)
 
     if isinstance(node, ast.Call):
+        # `len(...)` is a builtin used with lists.
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "len"
+            and len(node.args) == 1
+            and not node.keywords
+        ):
+            return {
+                "kind": "length",
+                "target": _expr(node.args[0], ctx),
+                "line": line,
+            }
         raise ParserError(
-            "function calls are not supported (only `print(...)` at statement level)", line
+            "function calls are not supported (only `print(...)` at statement level and `len(...)`)",
+            line,
         )
 
     if isinstance(node, ast.Attribute):
         raise ParserError("attribute access is not supported", line)
 
-    if isinstance(node, (ast.List, ast.Tuple, ast.Dict, ast.Set)):
-        raise ParserError("lists / tuples / dicts / sets are not supported", line)
+    if isinstance(node, ast.List):
+        return {
+            "kind": "array_literal",
+            "elements": [_expr(e, ctx) for e in node.elts],
+            "line": line,
+        }
+
+    if isinstance(node, ast.Tuple):
+        raise ParserError("tuples are not supported — use a list `[...]`", line)
+
+    if isinstance(node, (ast.Dict, ast.Set)):
+        raise ParserError("dicts / sets are not supported", line)
 
     if isinstance(node, ast.Subscript):
-        raise ParserError("indexing / slicing is not supported", line)
+        if isinstance(node.slice, ast.Slice):
+            raise ParserError("slicing is not supported", line)
+        return {
+            "kind": "index",
+            "target": _expr(node.value, ctx),
+            "index": _expr(node.slice, ctx),
+            "line": line,
+        }
 
     if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
         raise ParserError("comprehensions are not supported", line)
@@ -271,6 +301,21 @@ def _assign(node: ast.Assign, ctx: _Ctx, line: int) -> Dict[str, Any]:
     if len(node.targets) != 1:
         raise ParserError("multiple assignment targets (`a = b = 1`) are not supported", line)
     target = node.targets[0]
+    if isinstance(target, ast.Subscript):
+        if isinstance(target.slice, ast.Slice):
+            raise ParserError("slicing is not supported", line)
+        return {
+            "kind": "assign_index",
+            "op": "=",
+            "target": {
+                "kind": "index",
+                "target": _expr(target.value, ctx),
+                "index": _expr(target.slice, ctx),
+                "line": line,
+            },
+            "value": _expr(node.value, ctx),
+            "line": line,
+        }
     if not isinstance(target, ast.Name):
         raise ParserError("assignment target must be a simple variable name", line)
     name = target.id
@@ -296,12 +341,29 @@ def _assign(node: ast.Assign, ctx: _Ctx, line: int) -> Dict[str, Any]:
 
 
 def _aug_assign(node: ast.AugAssign, ctx: _Ctx, line: int) -> Dict[str, Any]:
-    if not isinstance(node.target, ast.Name):
-        raise ParserError("compound assignment target must be a variable", line)
-    name = node.target.id
     op_cls = type(node.op)
     if op_cls not in _AUG_OPS:
         raise ParserError(f"compound assignment '{ast.dump(node.op)}=' is not supported", line)
+
+    if isinstance(node.target, ast.Subscript):
+        if isinstance(node.target.slice, ast.Slice):
+            raise ParserError("slicing is not supported", line)
+        return {
+            "kind": "assign_index",
+            "op": _AUG_OPS[op_cls],
+            "target": {
+                "kind": "index",
+                "target": _expr(node.target.value, ctx),
+                "index": _expr(node.target.slice, ctx),
+                "line": line,
+            },
+            "value": _expr(node.value, ctx),
+            "line": line,
+        }
+
+    if not isinstance(node.target, ast.Name):
+        raise ParserError("compound assignment target must be a variable", line)
+    name = node.target.id
     if name not in ctx.declared:
         raise ParserError(f"variable '{name}' is used before assignment", line)
     return {
@@ -324,6 +386,8 @@ def _infer_type(value_node: ast.AST) -> str:
             return "double"
         if isinstance(v, str):
             return "string"
+    if isinstance(value_node, ast.List):
+        return "int[]"
     # Non-literal initializer: best-effort tag. Doesn't affect generator behaviour.
     return "int"
 

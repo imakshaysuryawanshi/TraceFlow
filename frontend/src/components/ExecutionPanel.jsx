@@ -25,6 +25,13 @@ export default function ExecutionPanel() {
   const prev = useTraceStore(selectPrevStep);
   const currentStepIdx = useTraceStore((s) => s.currentStep);
 
+  // Comparison State
+  const savedRun = useTraceStore((s) => s.savedRun);
+  const compareModeEnabled = useTraceStore((s) => s.compareModeEnabled);
+  const saveCurrentRun = useTraceStore((s) => s.saveCurrentRun);
+  const clearSavedRun = useTraceStore((s) => s.clearSavedRun);
+  const toggleCompareMode = useTraceStore((s) => s.toggleCompareMode);
+
   const loopCtx = useMemo(() => computeLoopContexts(trace), [trace]);
 
   if (!trace || !step) {
@@ -35,19 +42,63 @@ export default function ExecutionPanel() {
     );
   }
 
-  const variables = step.variables || {};
+  const variables = step.state?.variables || step.variables || {};
   const varEntries = Object.entries(variables);
   const changedSet = diffChangedVars(step, prev);
-  const currentLoop = loopCtx.get(currentStepIdx) || null;
+  const stepsList = trace.trace || trace.steps || [];
+  
+  const currentLoop = (step.control && step.control.iteration !== null && step.control.iteration !== undefined) ? {
+    iteration: step.control.iteration,
+    total: (() => {
+      if (step.control.total) return step.control.total;
+      let maxIter = step.control.iteration;
+      for (const s of stepsList) {
+        if (s.control && s.control.condition === step.control.condition) {
+          maxIter = Math.max(maxIter, s.control.iteration || 0);
+        }
+      }
+      return maxIter || 1;
+    })(),
+    condition: step.control.condition
+  } : (loopCtx.get(currentStepIdx) || null);
 
   return (
     <div data-testid={TF.executionPanel} className="h-full flex flex-col">
       {/* Header */}
-      <div className="h-9 flex items-center gap-2 px-3 border-b border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))] shrink-0">
+      <div className="h-9 flex items-center gap-2 px-3 border-b border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))] shrink-0 select-none">
         <Activity className="w-3.5 h-3.5 text-[hsl(var(--tf-text-muted))]" />
         <span className="text-[11px] uppercase tracking-[0.14em] font-semibold">
           Execution
         </span>
+        
+        {/* Comparison Actions */}
+        <div className="ml-4 flex items-center gap-2">
+          <button
+            onClick={saveCurrentRun}
+            className={`px-2 py-0.5 rounded text-[9.5px] uppercase font-bold tracking-wider transition-all select-none duration-200 active:scale-95 border ${
+              savedRun
+                ? "border-[hsl(var(--tf-success))]/40 text-[hsl(var(--tf-success))] hover:bg-[hsl(var(--tf-success))]/5"
+                : "border-[hsl(var(--tf-border))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))] hover:bg-[hsl(var(--tf-panel-2))]"
+            }`}
+            title={savedRun ? "Overwrite baseline run with current state" : "Save current trace as comparison baseline"}
+          >
+            {savedRun ? "Baseline Set ✓" : "Set Baseline"}
+          </button>
+          
+          {savedRun && (
+            <button
+              onClick={toggleCompareMode}
+              className={`px-2 py-0.5 rounded text-[9.5px] uppercase font-bold tracking-wider transition-all select-none duration-200 active:scale-95 border ${
+                compareModeEnabled
+                  ? "bg-[hsl(var(--tf-accent))]/10 text-[hsl(var(--tf-accent))] border border-[hsl(var(--tf-accent))]/30 shadow-[0_0_8px_rgba(34,211,238,0.1)]"
+                  : "border-[hsl(var(--tf-border))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))]"
+              }`}
+            >
+              {compareModeEnabled ? "Comparing Active" : "Compare"}
+            </button>
+          )}
+        </div>
+
         <span
           className="ml-auto text-[11px] mono text-[hsl(var(--tf-text-muted))]"
           data-testid={TF.currentStepBadge}
@@ -114,23 +165,84 @@ export default function ExecutionPanel() {
           <SectionLabel icon={<GitCommit className="w-3 h-3" />}>
             Variables
           </SectionLabel>
-          {varEntries.length === 0 ? (
-            <div className="text-[12px] text-[hsl(var(--tf-text-dim))] italic mono">
-              (none yet)
-            </div>
+
+          {compareModeEnabled && savedRun ? (
+            (() => {
+              const savedStep = savedRun.steps[Math.min(currentStepIdx, savedRun.steps.length - 1)];
+              const savedVariables = savedStep ? savedStep.variables || {} : {};
+              const savedPrev = currentStepIdx > 0 ? savedRun.steps[currentStepIdx - 1] : null;
+              const savedChangedSet = savedStep ? diffChangedVars(savedStep, savedPrev) : new Set();
+              const savedVarEntries = Object.entries(savedVariables);
+
+              return (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Current Run Column */}
+                  <div className="space-y-2">
+                    <div className="text-[10px] uppercase font-bold text-[hsl(var(--tf-text-dim))] mb-1 select-none">
+                      Current Run
+                    </div>
+                    {varEntries.length === 0 ? (
+                      <div className="text-[12px] text-[hsl(var(--tf-text-dim))] italic mono">(none)</div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2">
+                        {varEntries.map(([name, value]) => (
+                          <VariableCard
+                            key={name}
+                            name={name}
+                            value={value}
+                            previousValue={prev?.variables?.[name]}
+                            changed={changedSet.has(name)}
+                            stepKey={`curr-${currentStepIdx}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Saved Baseline Column */}
+                  <div className="space-y-2 border-l border-[hsl(var(--tf-border))] pl-4">
+                    <div className="text-[10px] uppercase font-bold text-[hsl(var(--tf-accent))] mb-1 select-none flex items-center justify-between">
+                      <span>Baseline Run</span>
+                    </div>
+                    {savedVarEntries.length === 0 ? (
+                      <div className="text-[12px] text-[hsl(var(--tf-text-dim))] italic mono">(none)</div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2">
+                        {savedVarEntries.map(([name, value]) => (
+                          <VariableCard
+                            key={name}
+                            name={name}
+                            value={value}
+                            previousValue={savedPrev?.variables?.[name]}
+                            changed={savedChangedSet.has(name)}
+                            stepKey={`saved-${currentStepIdx}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {varEntries.map(([name, value]) => (
-                <VariableCard
-                  key={name}
-                  name={name}
-                  value={value}
-                  previousValue={prev?.variables?.[name]}
-                  changed={changedSet.has(name)}
-                  stepKey={currentStepIdx}
-                />
-              ))}
-            </div>
+            varEntries.length === 0 ? (
+              <div className="text-[12px] text-[hsl(var(--tf-text-dim))] italic mono">
+                (none yet)
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {varEntries.map(([name, value]) => (
+                  <VariableCard
+                    key={name}
+                    name={name}
+                    value={value}
+                    previousValue={prev?.variables?.[name]}
+                    changed={changedSet.has(name)}
+                    stepKey={currentStepIdx}
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
 
@@ -191,16 +303,27 @@ function WhatChanged({ step, prev }) {
         </div>
       ) : (
         <ul className="space-y-1.5">
-          {changes.map((c, i) => (
-            <li
-              key={i}
-              data-testid={TF.changeItem(i)}
-              className="tf-fade-in flex items-start gap-2 text-[12.5px] text-[hsl(var(--tf-text))]"
-            >
-              <span className="mt-1 w-1 h-1 rounded-full bg-[hsl(var(--tf-accent))] shrink-0" />
-              <span className="mono leading-relaxed">{c}</span>
-            </li>
-          ))}
+          {changes.map((c, i) => {
+            const isObj = typeof c === "object" && c !== null;
+            const text = isObj
+              ? (c.type === "init"
+                  ? `Initialized variable '${c.var}' to ${c.new}`
+                  : c.type === "delete"
+                    ? `Deleted variable '${c.var}' (was ${c.old})`
+                    : `Updated variable '${c.var}' from ${c.old} to ${c.new}`)
+              : c;
+
+            return (
+              <li
+                key={i}
+                data-testid={TF.changeItem(i)}
+                className="tf-fade-in flex items-start gap-2 text-[12.5px] text-[hsl(var(--tf-text))]"
+              >
+                <span className="mt-1 w-1 h-1 rounded-full bg-[hsl(var(--tf-accent))] shrink-0" />
+                <span className="mono leading-relaxed">{text}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

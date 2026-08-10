@@ -1,13 +1,15 @@
 """Backend API tests for TraceFlow /api/traces endpoints (Phase 1-4)."""
 import os
+from pathlib import Path
 import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    # Fallback to reading frontend/.env directly for the runner
-    env_path = "/app/frontend/.env"
-    if os.path.exists(env_path):
+    # Fallback to reading frontend/.env directly for the runner. Resolve the
+    # path relative to this file so it works on any OS (not just /app).
+    env_path = Path(__file__).resolve().parent.parent.parent / "frontend" / ".env"
+    if env_path.exists():
         with open(env_path) as f:
             for line in f:
                 if line.startswith("REACT_APP_BACKEND_URL="):
@@ -15,7 +17,16 @@ if not BASE_URL:
                     break
 
 API = f"{BASE_URL}/api"
-EXPECTED_IDS = {"for-loop-sum", "if-else-grade", "while-countdown"}
+EXPECTED_IDS = {
+    "for-loop-sum",
+    "if-else-grade",
+    "while-countdown",
+    "nested-loops-table",
+    "max-scan",
+    "flag-toggle",
+    "string-accum",
+    "array-sum",
+}
 
 
 # --- Root/health --------------------------------------------------------------
@@ -28,12 +39,12 @@ class TestRoot:
 
 # --- List endpoint ------------------------------------------------------------
 class TestListTraces:
-    def test_list_returns_three_samples(self):
+    def test_list_returns_all_samples(self):
         r = requests.get(f"{API}/traces", timeout=15)
         assert r.status_code == 200
         data = r.json()
         assert isinstance(data, list)
-        assert len(data) == 3
+        assert len(data) == len(EXPECTED_IDS)
         ids = {t["id"] for t in data}
         assert ids == EXPECTED_IDS
 
@@ -60,45 +71,39 @@ class TestGetTrace:
         assert data["id"] == trace_id
         assert isinstance(data.get("code"), str) and len(data["code"]) > 0
         assert isinstance(data.get("steps"), list) and len(data["steps"]) > 0
-        # Validate step schema v1.0 (FROZEN) on every step:
-        # required fields: step, line, variables, output, changes, explanation
-        REQUIRED = ("step", "line", "variables", "output", "changes", "explanation")
+        # Validate step schema:
+        REQUIRED = ("step", "line", "code", "type", "state", "changes", "control", "reasoning")
         for idx, s in enumerate(data["steps"]):
             for key in REQUIRED:
                 assert key in s, f"Missing '{key}' on step[{idx}] of {trace_id}"
             assert isinstance(s["step"], int)
             assert isinstance(s["line"], int)
-            assert isinstance(s["variables"], dict)
-            assert isinstance(s["output"], list)
-            assert isinstance(s["changes"], list), (
-                f"step[{idx}].changes must be an array on {trace_id}"
-            )
+            assert isinstance(s["state"], dict)
+            assert isinstance(s["state"]["variables"], dict)
+            assert isinstance(s["changes"], list)
             for c in s["changes"]:
-                assert isinstance(c, str)
-            assert isinstance(s["explanation"], str)
+                assert isinstance(c, dict)
+                assert "var" in c
+                assert "type" in c
 
     def test_for_loop_sum_final_output_and_changes(self):
         r = requests.get(f"{API}/traces/for-loop-sum", timeout=15)
         assert r.status_code == 200
         data = r.json()
         steps = data["steps"]
-        # Should have 13 steps per PRD
         assert len(steps) == 13
-        # Final step outputs "6"
         assert steps[-1]["output"] == ["6"]
-        # step 4 changes should contain 'sum changed from 0 to 1'
         step4 = steps[3]
         assert step4["step"] == 4
-        assert "sum changed from 0 to 1" in step4["changes"], (
-            f"expected 'sum changed from 0 to 1' in step 4 changes, got {step4['changes']}"
-        )
+        sum_changes = [c for c in step4["changes"] if c["var"] == "sum"]
+        assert len(sum_changes) > 0
+        assert sum_changes[0]["new"] == 1
 
     def test_if_else_grade_three_steps(self):
         r = requests.get(f"{API}/traces/if-else-grade", timeout=15)
         assert r.status_code == 200
         steps = r.json()["steps"]
         assert len(steps) == 3
-        # step 3 output should be ['Pass']
         assert steps[2]["output"] == ["Pass"]
 
     def test_while_countdown_last_step_and_output(self):
@@ -107,14 +112,8 @@ class TestGetTrace:
         steps = r.json()["steps"]
         assert len(steps) == 11
         last = steps[-1]
-        # last step index is 11 (1-indexed)
         assert last["step"] == 11
-        assert any("loop exited" in c for c in last["changes"]), (
-            f"expected 'loop exited' in last step changes, got {last['changes']}"
-        )
-        # Optional condition_result field present and false
-        assert last.get("condition_result") is False
-        # step 3 output is ['3']
+        assert last.get("control", {}).get("result") is False
         assert steps[2]["output"] == ["3"]
 
     def test_get_trace_404_for_missing_id(self):

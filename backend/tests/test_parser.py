@@ -162,7 +162,6 @@ def test_boolean_and_string_and_double_literals():
 @pytest.mark.parametrize(
     "src,fragment",
     [
-        ("int[] xs = {1,2,3};", "arrays"),
         ("for (int x : new int[]{1}) {}", "for-each"),
         ("int i = 0; do { i++; } while (i < 3);", "do-while"),
         ("try { int x = 1; } catch (Exception e) {}", "try/catch"),

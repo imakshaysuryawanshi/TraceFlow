@@ -23,7 +23,7 @@ Public API:
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import copy
 
 MAX_STEPS = 500
@@ -46,13 +46,13 @@ class TraceGenerationError(Exception):
 class _Emitter:
     def __init__(self, *, integer_division: bool = True) -> None:
         self.vars: Dict[str, Any] = {}
+        self._prev_vars: Dict[str, Any] = {}
         self.output: List[str] = []
         self.steps: List[Dict[str, Any]] = []
         self._step_num: int = 1
         self.stopped: bool = False
-        # Java-style int/int → int truncate. Python & JS use plain float
-        # division for `/`. Floor division `//` is always integer.
         self.integer_division: bool = integer_division
+        self.loop_depth: int = 0
 
     def emit(
         self,
@@ -64,22 +64,76 @@ class _Emitter:
         explanation: str,
         condition: Optional[str] = None,
         condition_result: Optional[bool] = None,
+        block: str = "main",
+        iteration: Optional[int] = None,
     ) -> None:
+        # Calculate structured variable changes
+        changes_list = []
+        for k, v in self.vars.items():
+            if k not in self._prev_vars:
+                changes_list.append({
+                    "var": k,
+                    "old": None,
+                    "new": copy.deepcopy(v),
+                    "type": "init"
+                })
+            elif self._prev_vars[k] != v:
+                changes_list.append({
+                    "var": k,
+                    "old": copy.deepcopy(self._prev_vars[k]),
+                    "new": copy.deepcopy(v),
+                    "type": "update"
+                })
+        for k in self._prev_vars:
+            if k not in self.vars:
+                changes_list.append({
+                    "var": k,
+                    "old": copy.deepcopy(self._prev_vars[k]),
+                    "new": None,
+                    "type": "delete"
+                })
+        self._prev_vars = copy.deepcopy(self.vars)
+
+        why_executed = "Sequential execution"
+        if condition is not None:
+            why_executed = "Condition evaluated as " + ("true" if condition_result else "false")
+
         step: Dict[str, Any] = {
             "step": self._step_num,
             "line": line,
-            # Snapshots MUST be independent copies — later mutations to the
-            # env should not leak into recorded steps.
+            "code": label.split("→")[0].strip(),
+            "type": kind,
+            "state": {
+                "variables": copy.deepcopy(self.vars),
+                "memory": {},
+                "call_stack": []
+            },
+            "changes": changes_list,
+            "control": {
+                "block": block,
+                "iteration": iteration,
+                "condition": condition,
+                "result": condition_result,
+                "loop_depth": self.loop_depth,
+            },
+            "reasoning": {
+                "explanation": explanation,
+                "why_executed": why_executed,
+                "next_expected": "loop check" if kind in ("loop-init", "loop-step") else "next statement"
+            },
+            "warnings": [],
+            # Legacy fields for backwards compatibility
             "variables": copy.deepcopy(self.vars),
             "output": list(self.output),
-            "changes": list(changes),
             "explanation": explanation,
             "kind": kind,
             "label": label,
+            "_changes_legacy": changes,
         }
         if condition is not None:
             step["condition"] = condition
             step["condition_result"] = condition_result
+
         self.steps.append(step)
         self._step_num += 1
 
@@ -87,21 +141,36 @@ class _Emitter:
             self.emit_cap(line)
 
     def emit_cap(self, line: int) -> None:
-        # Emit a single terminal cap step and stop further execution.
         self.stopped = True
         self.steps.append(
             {
                 "step": self._step_num,
                 "line": line,
+                "code": "/* execution capped */",
+                "type": "declare",
+                "state": {
+                    "variables": copy.deepcopy(self.vars),
+                    "memory": {},
+                    "call_stack": []
+                },
+                "changes": [],
+                "control": {
+                    "block": "main",
+                    "iteration": None,
+                    "condition": None,
+                    "result": None
+                },
+                "reasoning": {
+                    "explanation": f"TraceFlow stopped after {MAX_STEPS} steps to prevent a runaway loop.",
+                    "why_executed": "Execution cap exceeded",
+                    "next_expected": "Exit program"
+                },
+                "warnings": ["execution stopped to prevent infinite loop"],
+                # Legacy fields
                 "variables": copy.deepcopy(self.vars),
                 "output": list(self.output),
-                "changes": [f"execution stopped after {MAX_STEPS} steps"],
-                "explanation": (
-                    f"TraceFlow stopped after {MAX_STEPS} steps to prevent a "
-                    f"runaway loop. Reduce the number of iterations or check "
-                    f"your loop condition."
-                ),
-                "kind": "declare",  # neutral kind so UI colouring stays sane
+                "explanation": f"TraceFlow stopped after {MAX_STEPS} steps.",
+                "kind": "declare",
                 "label": "execution capped",
             }
         )
@@ -138,6 +207,39 @@ def _evaluate(expr: Dict[str, Any], em: _Emitter) -> Any:
         em.vars[name] = new_val
         return new_val
 
+    if kind == "index":
+        target = _evaluate(expr["target"], em)
+        idx = _evaluate(expr["index"], em)
+        if not isinstance(target, list):
+            raise TraceGenerationError(
+                f"cannot index a non-list value", expr.get("line")
+            )
+        if not isinstance(idx, int) or idx < 0 or idx >= len(target):
+            raise TraceGenerationError(
+                f"index {idx} out of bounds for a list of length {len(target)}",
+                expr.get("line"),
+            )
+        return target[idx]
+
+    if kind == "array_literal":
+        return [_evaluate(e, em) for e in expr.get("elements", [])]
+
+    if kind == "array_alloc":
+        length = _evaluate(expr["length"], em)
+        if not isinstance(length, int) or length < 0:
+            raise TraceGenerationError(
+                f"array length must be a non-negative integer, got {length!r}",
+                expr.get("line"),
+            )
+        elem_default = _default_for(expr.get("elem_type", "int"))
+        return [elem_default for _ in range(length)]
+
+    if kind == "length":
+        target = _evaluate(expr["target"], em)
+        if not isinstance(target, list):
+            raise TraceGenerationError("length access requires a list", expr.get("line"))
+        return len(target)
+
     raise TraceGenerationError(f"unsupported expression kind: {kind}", expr.get("line"))
 
 
@@ -148,6 +250,12 @@ def _evaluate_unary_pure(expr: Dict[str, Any], em: _Emitter) -> Any:
     op = expr["op"]
     operand = expr["operand"]
     if op in ("++", "--"):
+        if operand["kind"] == "index":
+            arr, idx = _resolve_index(operand, em)
+            old = arr[idx]
+            new = old + 1 if op == "++" else old - 1
+            arr[idx] = new
+            return old if expr.get("postfix") else new
         if operand["kind"] != "var":
             raise TraceGenerationError(f"{op} requires a variable operand", expr.get("line"))
         name = operand["name"]
@@ -262,6 +370,14 @@ def _stringify(expr: Optional[Dict[str, Any]]) -> str:
         return f"{expr['op']}{_stringify(expr['operand'])}"
     if k == "assign_expr":
         return f"{expr['name']} {expr['op']} {_stringify(expr['value'])}"
+    if k == "index":
+        return f"{_stringify(expr['target'])}[{_stringify(expr['index'])}]"
+    if k == "array_literal":
+        return "[" + ", ".join(_stringify(e) for e in expr.get("elements", [])) + "]"
+    if k == "array_alloc":
+        return f"new {expr.get('elem_type', 'int')}[{_stringify(expr['length'])}]"
+    if k == "length":
+        return f"{_stringify(expr['target'])}.length"
     return "?"
 
 
@@ -269,6 +385,8 @@ def _fmt_value(v: Any) -> str:
     """Format a runtime value the way Java's default `println` would."""
     if isinstance(v, bool):
         return "true" if v else "false"
+    if isinstance(v, list):
+        return "[" + ", ".join(_fmt_value(x) for x in v) + "]"
     return str(v)
 
 
@@ -287,6 +405,8 @@ def _exec(stmt: Dict[str, Any], em: _Emitter) -> None:
         _exec_var_decl(stmt, em)
     elif kind == "assign":
         _exec_assign(stmt, em, as_kind="assign")
+    elif kind == "assign_index":
+        _exec_assign_index(stmt, em, as_kind="assign")
     elif kind == "unary_stmt":
         _exec_unary_stmt(stmt, em, as_kind="assign")
     elif kind == "print":
@@ -307,6 +427,8 @@ def _exec(stmt: Dict[str, Any], em: _Emitter) -> None:
 
 
 def _default_for(type_: str) -> Any:
+    if type_.endswith("[]"):
+        return []
     if type_ in ("int", "long", "short", "byte"):
         return 0
     if type_ in ("double", "float"):
@@ -365,9 +487,88 @@ def _exec_assign(stmt: Dict[str, Any], em: _Emitter, *, as_kind: str) -> None:
     )
 
 
+def _resolve_index(expr: Dict[str, Any], em: _Emitter):
+    """Evaluate an `index` expression and return (target_value, idx)."""
+    target = _evaluate(expr["target"], em)
+    idx = _evaluate(expr["index"], em)
+    if not isinstance(target, list):
+        raise TraceGenerationError(
+            "cannot index a non-list value", expr.get("line")
+        )
+    if not isinstance(idx, int) or idx < 0 or idx >= len(target):
+        raise TraceGenerationError(
+            f"index {idx} out of bounds for a list of length {len(target)}",
+            expr.get("line"),
+        )
+    return target, idx
+
+
+def _exec_assign_index(stmt: Dict[str, Any], em: _Emitter, *, as_kind: str) -> None:
+    target_expr = stmt["target"]
+    if target_expr["kind"] != "index":
+        raise TraceGenerationError(
+            "assign_index target must be an index expression", stmt.get("line")
+        )
+    arr, idx = _resolve_index(target_expr, em)
+    old = arr[idx]
+    rhs = _evaluate(stmt["value"], em)
+    new = _combine(stmt["op"], old, rhs, stmt.get("line"), em)
+    arr[idx] = new
+
+    op = stmt["op"]
+    rhs_str = _stringify(stmt["value"])
+    disp_old = _fmt_value(old)
+    disp_new = _fmt_value(new)
+    target_str = _stringify(target_expr)
+    label = f"{target_str} {op} {rhs_str}  →  {target_str} = {disp_new}"
+    em.emit(
+        line=stmt["line"],
+        kind=as_kind,
+        label=label,
+        changes=[f"{target_str} changed from {disp_old} to {disp_new}"],
+        explanation=(
+            f"{target_str} {op} {rhs_str} updates the element at that index. "
+            f"It changes from {disp_old} to {disp_new}."
+        ),
+    )
+
+
+def _exec_unary_index(stmt: Dict[str, Any], em: _Emitter, *, as_kind: str) -> None:
+    """Handle `arr[i]++` / `arr[i]--` as a statement."""
+    op = stmt["op"]
+    if op not in ("++", "--"):
+        raise TraceGenerationError(f"unsupported unary operator '{op}'", stmt.get("line"))
+    arr, idx = _resolve_index(stmt["operand"], em)
+    old = arr[idx]
+    new = old + 1 if op == "++" else old - 1
+    arr[idx] = new
+
+    disp_old = _fmt_value(old)
+    disp_new = _fmt_value(new)
+    target_str = _stringify(stmt["operand"])
+    verb = "incremented" if op == "++" else "decremented"
+    label = f"{target_str}{op}  →  {target_str} = {disp_new}"
+    if as_kind == "loop-step":
+        change = f"{target_str} {verb} from {disp_old} to {disp_new}"
+        expl = f"The element at that index is {verb} to {disp_new}. The condition will be re-checked."
+    else:
+        change = f"{target_str} changed from {disp_old} to {disp_new}"
+        expl = f"The element at that index is {verb} to {disp_new}."
+    em.emit(
+        line=stmt["line"],
+        kind=as_kind,
+        label=label,
+        changes=[change],
+        explanation=expl,
+    )
+
+
 def _exec_unary_stmt(stmt: Dict[str, Any], em: _Emitter, *, as_kind: str) -> None:
     op = stmt["op"]
     operand = stmt["operand"]
+    if operand["kind"] == "index":
+        _exec_unary_index(stmt, em, as_kind=as_kind)
+        return
     if operand["kind"] != "var":
         raise TraceGenerationError(f"{op} requires a variable operand", stmt.get("line"))
     name = operand["name"]
@@ -430,13 +631,22 @@ def _exec_if(stmt: Dict[str, Any], em: _Emitter) -> None:
     result = bool(_evaluate(stmt["condition"], em))
     branch_label = "took if branch" if result else "took else branch"
 
+    import re
+    words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', cond_str)
+    var_parts = []
+    for w in words:
+        if w in em.vars:
+            val_disp = str(em.vars[w]).lower() if isinstance(em.vars[w], bool) else str(em.vars[w])
+            var_parts.append(f"{w} = {val_disp}")
+    reason_str = f" ({', '.join(var_parts)})" if var_parts else ""
+
     em.emit(
         line=stmt["line"],
         kind="condition",
         label=f"Check {cond_str}  →  {str(result).lower()}",
         changes=[f"condition {cond_str} evaluated to {str(result).lower()}", branch_label],
         explanation=(
-            f"{cond_str} evaluates to {str(result).lower()}. "
+            f"The condition '{cond_str}' evaluates to {str(result).lower()}{reason_str}. "
             + (
                 "The if branch will execute; the else branch is skipped."
                 if result
@@ -483,11 +693,15 @@ def _exec_for(stmt: Dict[str, Any], em: _Emitter) -> None:
         if not result:
             return
 
-        # 3. body
-        for s in stmt.get("body", []):
-            if em.stopped:
-                return
-            _exec(s, em)
+        # 3. body — executes one nesting level deeper
+        em.loop_depth += 1
+        try:
+            for s in stmt.get("body", []):
+                if em.stopped:
+                    return
+                _exec(s, em)
+        finally:
+            em.loop_depth -= 1
 
         # 4. update — emit a "loop-step"
         upd = stmt.get("update")
@@ -531,24 +745,38 @@ def _exec_while(stmt: Dict[str, Any], em: _Emitter) -> None:
         _emit_loop_condition(em, stmt["line"], cond_str, result)
         if not result:
             return
-        for s in stmt.get("body", []):
-            if em.stopped:
-                return
-            _exec(s, em)
+        em.loop_depth += 1
+        try:
+            for s in stmt.get("body", []):
+                if em.stopped:
+                    return
+                _exec(s, em)
+        finally:
+            em.loop_depth -= 1
 
 
 def _emit_loop_condition(em: _Emitter, line: int, cond_str: str, result: bool) -> None:
     changes = [f"condition {cond_str} evaluated to {str(result).lower()}"]
     if not result:
         changes.append("loop exited")
+
+    import re
+    words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', cond_str)
+    var_parts = []
+    for w in words:
+        if w in em.vars:
+            val_disp = str(em.vars[w]).lower() if isinstance(em.vars[w], bool) else str(em.vars[w])
+            var_parts.append(f"{w} = {val_disp}")
+    reason_str = f" ({', '.join(var_parts)})" if var_parts else ""
+
     em.emit(
         line=line,
         kind="condition",
         label=f"Check {cond_str}  →  {str(result).lower()}",
         changes=changes,
         explanation=(
-            f"{cond_str} is {str(result).lower()}, so the loop body "
-            + ("runs again." if result else "does not run. The loop exits.")
+            f"The loop condition '{cond_str}' evaluates to {str(result).lower()}{reason_str}, "
+            + ("so we enter the loop body." if result else "so the loop exits.")
         ),
         condition=cond_str,
         condition_result=result,
@@ -585,14 +813,50 @@ def generate(
             break
         _exec(stmt, em)
 
+    # Run pattern detection
+    from .pattern_detector import detect_patterns
+    patterns_data = detect_patterns(em.steps)
+    patterns = patterns_data.get("patterns", [])
+    signals = patterns_data.get("signals", [])
+
+    # Extract initial inputs from the first step variables
+    initial_params = {}
+    if em.steps:
+        initial_params = em.steps[0].get("state", {}).get("variables", {})
+
+    import datetime
     trace: Dict[str, Any] = {
+        # Legacy/Compatibility Root Fields
         "id": id,
         "name": name or id,
         "description": description,
         "code": code,
         "language": language,
         "steps": em.steps,
+        "patterns": patterns,
+        "signals": signals,
+        
+        # Proposed Unified Schema Nodes
+        "meta": {
+            "language": language,
+            "execution_id": id,
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "total_steps": len(em.steps)
+        },
+        "input": {
+            "params": initial_params,
+            "stdin": None
+        },
+        "trace": em.steps,
+        "summary": {
+            "final_state": em.vars,
+            "complexity": {
+                "time": "O(n)" if "Nested Loops" not in [p.get("name") for p in patterns] else "O(n^2)",
+                "space": "O(1)"
+            }
+        }
     }
     if concept is not None:
         trace["concept"] = concept
+
     return trace

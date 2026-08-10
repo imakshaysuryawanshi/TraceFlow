@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 DEFAULT_MODELS: Dict[str, str] = {
     "gemini": "gemini-1.5-flash",
-    "groq": "llama3-8b-8192",
+    "groq": "openai/gpt-oss-120b",
     "openrouter": "openai/gpt-4o-mini",
     "openai": "gpt-4o-mini",
 }
@@ -52,14 +52,19 @@ ENV_KEY_MAP: Dict[str, str] = {
 # Prompt
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are a programming tutor helping a beginner understand a step-by-step execution trace.
+SYSTEM_PROMPT = """You are a precise, non-hallucinating programming tutor explaining a step-by-step execution trace.
 
-The user wrote the code below. For each execution step, provide a SHORT explanation (1-3 sentences) that:
-- States what just happened in plain language
-- References the specific variable values involved
-- Connects to the overall program flow
+GROUNDING RULES (strict — never violate):
+- Use ONLY facts present in the step data and code you are given. Never invent variable names, values, lines, or control flow.
+- You may only reference variable names that actually appear in the step's `variables` snapshot, and only their exact values as shown.
+- Never claim a value, print, condition result, or line number that is not explicitly present in the data.
+- Do not guess the purpose of a statement beyond what the data shows; if a step shows no change, say so.
 
-Respond with a JSON array of strings, one per step, in order. No markdown, no extra text."""
+OUTPUT CONTRACT (strict):
+- Respond with EXACTLY one JSON array of strings, one entry per step, in the same order as provided.
+- Each entry is a SHORT explanation of 1-3 sentences.
+- No markdown, no code fences, no bullets, no numbering, no commentary before or after the JSON.
+- The JSON must parse as valid JSON. Nothing else is acceptable."""
 
 
 def _build_prompt(code: str, language: str, steps: List[Dict[str, Any]]) -> str:
@@ -235,8 +240,9 @@ async def explain_steps(
                 logger.warning("Unknown provider '%s'", provider)
 
     if explanations is not None and len(explanations) == len(steps):
-        _explanation_cache[ck] = explanations
-        return explanations
+        sanitized = _sanitize_explanations(explanations, steps)
+        _explanation_cache[ck] = sanitized
+        return sanitized
 
     if explanations is not None:
         logger.warning(
@@ -252,6 +258,43 @@ async def explain_steps(
         return result
 
     return _fallback(steps)
+
+
+def _sanitize_explanations(
+    explanations: List[str], steps: List[Dict[str, Any]]
+) -> List[str]:
+    """Anti-hallucination guard.
+
+    For each step, if the LLM explanation references a variable that does not
+    exist in that step's snapshot (e.g. a made-up snake_case/camelCase
+    identifier), fall back to the templated explanation for that step. Keeps
+    the count stable.
+    """
+    result: List[str] = []
+    for exp, step in zip(explanations, steps):
+        vars_map = step.get("state", {}).get("variables") or step.get("variables") or {}
+        known = set(vars_map.keys())
+        if not known:
+            result.append(exp)
+            continue
+        import re
+        mentioned = set(re.findall(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b", exp))
+        # Only suspicious identifiers: code-style names (contain underscore or
+        # camelCase) that are NOT actual variables in this step.
+        suspicious = {
+            m
+            for m in mentioned
+            if m not in known and ("_" in m or re.search(r"[a-z][A-Z]", m))
+        }
+        if suspicious:
+            logger.info(
+                "Explanation references unknown variable-like identifiers %s — falling back to template",
+                sorted(suspicious),
+            )
+            result.append(step.get("explanation", ""))
+        else:
+            result.append(exp)
+    return result
 
 
 def _fallback(steps: List[Dict[str, Any]]) -> List[str]:

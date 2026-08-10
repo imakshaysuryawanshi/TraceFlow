@@ -7,6 +7,7 @@ import {
 } from "@/store/traceStore";
 import { TF } from "@/constants/testIds";
 import { FileCode2, Pencil, RotateCcw } from "lucide-react";
+import { extractVariablesFromCode, updateVariableInCode, injectBugInCode, prependVariableToCode } from "@/store/snippetStorage";
 
 /**
  * Left panel — Monaco editor.
@@ -22,12 +23,31 @@ export default function CodeEditor() {
   const language = useTraceStore((s) => s.language);
   const setDraftCode = useTraceStore((s) => s.setDraftCode);
   const resetCode = useTraceStore((s) => s.resetCode);
+  const runTrace = useTraceStore((s) => s.runTrace);
   const currentStep = useTraceStore(selectCurrentStep);
   const codeDirty = useTraceStore(selectCodeDirty);
+
+  // Breakpoints
+  const breakpoints = useTraceStore((s) => s.breakpoints);
+  const breakpointHitMessage = useTraceStore((s) => s.breakpointHitMessage);
+  const addBreakpoint = useTraceStore((s) => s.addBreakpoint);
+  const removeBreakpoint = useTraceStore((s) => s.removeBreakpoint);
+  const toggleBreakpoint = useTraceStore((s) => s.toggleBreakpoint);
 
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const decorationsRef = useRef([]);
+  const detectedInputs = extractVariablesFromCode(draftCode);
+
+  const handleInputChange = async (varName, newValue) => {
+    const updatedCode = updateVariableInCode(draftCode, varName, newValue);
+    setDraftCode(updatedCode);
+    
+    // Auto re-run trace to trigger execution engine refresh immediately
+    setTimeout(() => {
+      runTrace();
+    }, 100);
+  };
 
   const handleMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -108,6 +128,26 @@ export default function CodeEditor() {
             · {trace.name} · {LANG_LABELS[language] ?? "Java"}
           </span>
         )}
+        {trace && (
+          <select
+            onChange={(e) => {
+              const bug = e.target.value;
+              if (bug) {
+                const buggedCode = injectBugInCode(draftCode, bug);
+                setDraftCode(buggedCode);
+                setTimeout(() => runTrace(), 100);
+              }
+              e.target.value = "";
+            }}
+            className="ml-3 h-5 px-1 rounded text-[9.5px] uppercase font-bold tracking-wider border border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel-2))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))] hover:border-[hsl(var(--tf-text-dim))] focus:outline-none cursor-pointer transition-colors duration-200"
+            defaultValue=""
+          >
+            <option value="" disabled>Introduce Bug...</option>
+            <option value="off_by_one">Off-by-One</option>
+            <option value="missing_increment">Missing Increment</option>
+            <option value="wrong_comparison">Wrong Comparison</option>
+          </select>
+        )}
         <span className="ml-auto flex items-center gap-2">
           {codeDirty ? (
             <>
@@ -165,6 +205,167 @@ export default function CodeEditor() {
             tabSize: 4,
           }}
         />
+      </div>
+      {/* Bottom Controls Panel (Inputs + Breakpoints) */}
+      <div className="h-28 border-t border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-panel))] grid grid-cols-2 gap-4 p-3 shrink-0">
+        
+        {/* Left Column: Input Variables */}
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5 mb-1.5 select-none">
+            <span className="text-[10.5px] uppercase tracking-[0.12em] font-semibold text-[hsl(var(--tf-text-muted))]">
+              Input Variables
+            </span>
+            <span className="text-[9.5px] text-[hsl(var(--tf-text-dim))] mono">
+              (edit values to auto-run)
+            </span>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+            {detectedInputs.length > 0 ? (
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                {detectedInputs.map((input) => (
+                  <div key={input.name} className="flex items-center gap-1.5">
+                    <span className="text-[11px] mono text-[hsl(var(--tf-text-dim))] select-none">
+                      {input.name} =
+                    </span>
+                    <input
+                      type="text"
+                      value={input.value}
+                      onChange={(e) => handleInputChange(input.name, e.target.value)}
+                      className="w-14 h-5 px-1 text-[11px] mono rounded border border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))] focus:outline-none focus:border-[hsl(var(--tf-accent))]"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[11px] text-[hsl(var(--tf-text-dim))] italic select-none">
+                No variables detected in top 10 lines.
+              </div>
+            )}
+          </div>
+
+          {/* Add Input Variable Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = e.target.varName.value.trim();
+              const val = e.target.varVal.value.trim();
+              if (name && val) {
+                const updatedCode = prependVariableToCode(draftCode, language, name, val);
+                setDraftCode(updatedCode);
+                setTimeout(() => runTrace(), 100);
+                e.target.reset();
+              }
+            }}
+            className="flex items-center gap-1.5 mt-1.5 border-t border-[hsl(var(--tf-border))]/30 pt-1.5 shrink-0"
+          >
+            <input
+              name="varName"
+              type="text"
+              placeholder="Name"
+              pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
+              title="Variable name must be valid identifier (e.g. nums, target, x)"
+              className="w-12 h-5 px-1 text-[10px] mono rounded border border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))] focus:outline-none focus:border-[hsl(var(--tf-accent))]"
+              required
+            />
+            <span className="text-[10px] text-[hsl(var(--tf-text-dim))] mono select-none">=</span>
+            <input
+              name="varVal"
+              type="text"
+              placeholder="Value"
+              className="flex-1 h-5 px-1 text-[10px] mono rounded border border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))] focus:outline-none focus:border-[hsl(var(--tf-accent))]"
+              required
+            />
+            <button
+              type="submit"
+              className="h-5 px-2 rounded bg-[hsl(var(--tf-accent))] hover:bg-[hsl(var(--tf-accent-2))] text-black font-bold text-[10px] transition-colors select-none"
+              title="Declare this variable at the top of the file"
+            >
+              Add
+            </button>
+          </form>
+        </div>
+
+        {/* Right Column: Breakpoints */}
+        <div className="flex flex-col min-w-0 border-l border-[hsl(var(--tf-border))] pl-4">
+          <div className="flex items-center gap-2 mb-2 select-none">
+            <span className="text-[10.5px] uppercase tracking-[0.12em] font-semibold text-[hsl(var(--tf-text-muted))]">
+              Breakpoints
+            </span>
+            {breakpointHitMessage && (
+              <span className="text-[9.5px] text-[hsl(var(--tf-danger))] font-semibold animate-pulse">
+                ({breakpointHitMessage})
+              </span>
+            )}
+          </div>
+          
+          {/* Add Breakpoint Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const line = e.target.line.value;
+              const cond = e.target.condition.value;
+              if (line) {
+                addBreakpoint(line, cond);
+                e.target.reset();
+              }
+            }}
+            className="flex items-center gap-2 mb-2 shrink-0 animate-fade-in"
+          >
+            <input
+              name="line"
+              type="number"
+              placeholder="Line"
+              className="w-12 h-6 px-1.5 text-[11px] mono rounded border border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))] focus:outline-none focus:border-[hsl(var(--tf-accent))]"
+              min="1"
+              required
+            />
+            <input
+              name="condition"
+              type="text"
+              placeholder="Condition (e.g. sum > 5)"
+              className="flex-1 h-6 px-1.5 text-[11px] mono rounded border border-[hsl(var(--tf-border))] bg-[hsl(var(--tf-bg))] text-[hsl(var(--tf-text))] focus:outline-none focus:border-[hsl(var(--tf-accent))]"
+            />
+            <button
+              type="submit"
+              className="h-6 px-2 rounded bg-[hsl(var(--tf-accent))] hover:bg-[hsl(var(--tf-accent-2))] text-black font-bold text-[11px] transition-colors"
+            >
+              +
+            </button>
+          </form>
+
+          {/* Breakpoints List */}
+          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+            {breakpoints.length > 0 ? (
+              breakpoints.map((bp) => (
+                <div key={bp.id} className="flex items-center justify-between text-[11px] mono px-2 py-0.5 rounded bg-[hsl(var(--tf-bg))] border border-[hsl(var(--tf-border))]/50">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <input
+                      type="checkbox"
+                      checked={bp.enabled}
+                      onChange={() => toggleBreakpoint(bp.id)}
+                      className="cursor-pointer accent-[hsl(var(--tf-accent))]"
+                    />
+                    <span className={bp.enabled ? "text-[hsl(var(--tf-text))]" : "text-[hsl(var(--tf-text-dim))] line-through"}>
+                      Line {bp.line} {bp.condition && `if (${bp.condition})`}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => removeBreakpoint(bp.id)}
+                    className="text-[hsl(var(--tf-text-dim))] hover:text-[hsl(var(--tf-danger))] font-bold px-1 ml-1"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="text-[11px] text-[hsl(var(--tf-text-dim))] italic select-none">
+                No breakpoints set.
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

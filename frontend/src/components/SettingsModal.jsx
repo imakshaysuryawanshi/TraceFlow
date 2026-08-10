@@ -20,7 +20,7 @@ import { Settings, Key } from "lucide-react";
 
 const PROVIDER_MODELS = {
   gemini: "gemini-1.5-flash",
-  groq: "llama3-8b-8192",
+  groq: "openai/gpt-oss-120b",
   openrouter: "openai/gpt-4o-mini",
   openai: "gpt-4o-mini",
 };
@@ -30,6 +30,7 @@ const PROVIDER_LABELS = {
   groq: "Groq",
   openrouter: "OpenRouter",
   openai: "OpenAI",
+  off: "Off (no AI)",
 };
 
 export default function SettingsModal({ open, onOpenChange }) {
@@ -44,7 +45,7 @@ export default function SettingsModal({ open, onOpenChange }) {
 
   useEffect(() => {
     if (open) {
-      setProvider(aiProvider);
+      setProvider(aiProvider || "off");
       setModel(aiModel);
       setApiKey(aiApiKey);
     }
@@ -52,13 +53,21 @@ export default function SettingsModal({ open, onOpenChange }) {
 
   const handleProviderChange = (val) => {
     setProvider(val);
+    if (val === "off") {
+      setModel("");
+      return;
+    }
     if (!model || model === PROVIDER_MODELS[aiProvider]) {
       setModel(PROVIDER_MODELS[val]);
     }
   };
 
   const handleSave = () => {
-    setAiSettings({ aiProvider: provider, aiModel: model, aiApiKey: apiKey });
+    setAiSettings({
+      aiProvider: provider === "off" ? "" : provider,
+      aiModel: provider === "off" ? "" : model,
+      aiApiKey: provider === "off" ? "" : apiKey,
+    });
     onOpenChange(false);
   };
 
@@ -84,7 +93,7 @@ export default function SettingsModal({ open, onOpenChange }) {
             </Label>
             <Select value={provider} onValueChange={handleProviderChange}>
               <SelectTrigger className="bg-[hsl(var(--tf-panel-2))] border-[hsl(var(--tf-border-strong))] text-sm h-9">
-                <SelectValue />
+                <SelectValue placeholder="AI off — choose a provider" />
               </SelectTrigger>
               <SelectContent className="bg-[hsl(var(--tf-panel-2))] border-[hsl(var(--tf-border-strong))] text-[hsl(var(--tf-text))]">
                 {Object.entries(PROVIDER_LABELS).map(([id, label]) => (

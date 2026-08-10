@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
-  "schema_doc": "TraceFlow Trace v1.0 — FROZEN. Every step must satisfy: { step:int, line:int, variables:object, output:[string], changes:[string], explanation:string }. Optional UI hints (kind, label, condition, condition_result) may be added but are NOT required by the frontend and MUST NOT be relied on by future parser/AI code.",
+  "schema_doc": "TraceFlow Trace v1.0 \u2014 FROZEN. Every step must satisfy: { step:int, line:int, variables:object, output:[string], changes:[string], explanation:string }. Optional UI hints (kind, label, condition, condition_result) may be added but are NOT required by the frontend and MUST NOT be relied on by future parser/AI code.",
   "samples": [
     {
       "id": "for-loop-sum",
-      "name": "For Loop — Sum 1..3",
+      "name": "For Loop \u2014 Sum 1..3",
       "description": "Compute the sum of integers from 1 to 3 using a for loop.",
       "concept": "for-loop",
       "code": "int sum = 0;\nfor (int i = 1; i <= 3; i++) {\n    sum += i;\n}\nSystem.out.println(sum);",
@@ -12,9 +12,13 @@
         {
           "step": 1,
           "line": 1,
-          "variables": { "sum": 0 },
+          "variables": {
+            "sum": 0
+          },
           "output": [],
-          "changes": ["sum initialized to 0"],
+          "changes": [
+            "sum initialized to 0"
+          ],
           "explanation": "The variable sum is declared and initialized to 0. It will accumulate the running total. Next, the for loop begins.",
           "kind": "declare",
           "label": "Declare sum"
@@ -22,9 +26,14 @@
         {
           "step": 2,
           "line": 2,
-          "variables": { "sum": 0, "i": 1 },
+          "variables": {
+            "sum": 0,
+            "i": 1
+          },
           "output": [],
-          "changes": ["i initialized to 1"],
+          "changes": [
+            "i initialized to 1"
+          ],
           "explanation": "The loop counter i is initialized to 1. The condition i <= 3 will now be evaluated before the body executes.",
           "kind": "loop-init",
           "label": "Initialize i = 1"
@@ -32,117 +41,175 @@
         {
           "step": 3,
           "line": 2,
-          "variables": { "sum": 0, "i": 1 },
+          "variables": {
+            "sum": 0,
+            "i": 1
+          },
           "output": [],
-          "changes": ["condition i <= 3 evaluated to true"],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
           "explanation": "The condition 1 <= 3 is true, so the loop body will execute. Nothing has changed yet.",
           "kind": "condition",
-          "label": "Check i <= 3  →  true",
+          "label": "Check i <= 3  \u2192  true",
           "condition": "i <= 3",
           "condition_result": true
         },
         {
           "step": 4,
           "line": 3,
-          "variables": { "sum": 1, "i": 1 },
+          "variables": {
+            "sum": 1,
+            "i": 1
+          },
           "output": [],
-          "changes": ["sum changed from 0 to 1"],
+          "changes": [
+            "sum changed from 0 to 1"
+          ],
           "explanation": "The current value of i (1) is added to sum. sum changes from 0 to 1. The loop will now increment i.",
           "kind": "assign",
-          "label": "sum += i  →  sum = 1"
+          "label": "sum += i  \u2192  sum = 1"
         },
         {
           "step": 5,
           "line": 2,
-          "variables": { "sum": 1, "i": 2 },
+          "variables": {
+            "sum": 1,
+            "i": 2
+          },
           "output": [],
-          "changes": ["i incremented from 1 to 2"],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
           "explanation": "The counter i is incremented to 2. The loop condition will be re-checked.",
           "kind": "loop-step",
-          "label": "i++  →  i = 2"
+          "label": "i++  \u2192  i = 2"
         },
         {
           "step": 6,
           "line": 2,
-          "variables": { "sum": 1, "i": 2 },
+          "variables": {
+            "sum": 1,
+            "i": 2
+          },
           "output": [],
-          "changes": ["condition i <= 3 evaluated to true"],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
           "explanation": "2 <= 3 is true, so the loop body runs again. sum will be updated next.",
           "kind": "condition",
-          "label": "Check i <= 3  →  true",
+          "label": "Check i <= 3  \u2192  true",
           "condition": "i <= 3",
           "condition_result": true
         },
         {
           "step": 7,
           "line": 3,
-          "variables": { "sum": 3, "i": 2 },
+          "variables": {
+            "sum": 3,
+            "i": 2
+          },
           "output": [],
-          "changes": ["sum changed from 1 to 3"],
+          "changes": [
+            "sum changed from 1 to 3"
+          ],
           "explanation": "i (2) is added to sum. sum changes from 1 to 3.",
           "kind": "assign",
-          "label": "sum += i  →  sum = 3"
+          "label": "sum += i  \u2192  sum = 3"
         },
         {
           "step": 8,
           "line": 2,
-          "variables": { "sum": 3, "i": 3 },
+          "variables": {
+            "sum": 3,
+            "i": 3
+          },
           "output": [],
-          "changes": ["i incremented from 2 to 3"],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
           "explanation": "i is incremented to 3. The condition is re-checked.",
           "kind": "loop-step",
-          "label": "i++  →  i = 3"
+          "label": "i++  \u2192  i = 3"
         },
         {
           "step": 9,
           "line": 2,
-          "variables": { "sum": 3, "i": 3 },
+          "variables": {
+            "sum": 3,
+            "i": 3
+          },
           "output": [],
-          "changes": ["condition i <= 3 evaluated to true"],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
           "explanation": "3 <= 3 is true, so the body runs one last time.",
           "kind": "condition",
-          "label": "Check i <= 3  →  true",
+          "label": "Check i <= 3  \u2192  true",
           "condition": "i <= 3",
           "condition_result": true
         },
         {
           "step": 10,
           "line": 3,
-          "variables": { "sum": 6, "i": 3 },
+          "variables": {
+            "sum": 6,
+            "i": 3
+          },
           "output": [],
-          "changes": ["sum changed from 3 to 6"],
+          "changes": [
+            "sum changed from 3 to 6"
+          ],
           "explanation": "i (3) is added to sum. sum changes from 3 to 6. This is the final iteration.",
           "kind": "assign",
-          "label": "sum += i  →  sum = 6"
+          "label": "sum += i  \u2192  sum = 6"
         },
         {
           "step": 11,
           "line": 2,
-          "variables": { "sum": 6, "i": 4 },
+          "variables": {
+            "sum": 6,
+            "i": 4
+          },
           "output": [],
-          "changes": ["i incremented from 3 to 4"],
+          "changes": [
+            "i incremented from 3 to 4"
+          ],
           "explanation": "i becomes 4. The condition will now be checked once more.",
           "kind": "loop-step",
-          "label": "i++  →  i = 4"
+          "label": "i++  \u2192  i = 4"
         },
         {
           "step": 12,
           "line": 2,
-          "variables": { "sum": 6, "i": 4 },
+          "variables": {
+            "sum": 6,
+            "i": 4
+          },
           "output": [],
-          "changes": ["condition i <= 3 evaluated to false", "loop exited"],
+          "changes": [
+            "condition i <= 3 evaluated to false",
+            "loop exited"
+          ],
           "explanation": "4 <= 3 is false, so the loop exits. Execution moves to the print statement.",
           "kind": "condition",
-          "label": "Check i <= 3  →  false",
+          "label": "Check i <= 3  \u2192  false",
           "condition": "i <= 3",
           "condition_result": false
         },
         {
           "step": 13,
           "line": 5,
-          "variables": { "sum": 6, "i": 4 },
-          "output": ["6"],
-          "changes": ["printed \"6\""],
+          "variables": {
+            "sum": 6,
+            "i": 4
+          },
+          "output": [
+            "6"
+          ],
+          "changes": [
+            "printed \"6\""
+          ],
           "explanation": "The final value of sum (6) is printed to the console. The program ends here.",
           "kind": "print",
           "label": "System.out.println(sum)"
@@ -151,7 +218,7 @@
     },
     {
       "id": "if-else-grade",
-      "name": "If / Else — Grade Check",
+      "name": "If / Else \u2014 Grade Check",
       "description": "Evaluate a condition and print a branch-specific message.",
       "concept": "if-else",
       "code": "int score = 72;\nif (score >= 60) {\n    System.out.println(\"Pass\");\n} else {\n    System.out.println(\"Fail\");\n}",
@@ -159,9 +226,13 @@
         {
           "step": 1,
           "line": 1,
-          "variables": { "score": 72 },
+          "variables": {
+            "score": 72
+          },
           "output": [],
-          "changes": ["score initialized to 72"],
+          "changes": [
+            "score initialized to 72"
+          ],
           "explanation": "The variable score is initialized to 72. This value will be tested against 60 next.",
           "kind": "declare",
           "label": "Declare score = 72"
@@ -169,21 +240,32 @@
         {
           "step": 2,
           "line": 2,
-          "variables": { "score": 72 },
+          "variables": {
+            "score": 72
+          },
           "output": [],
-          "changes": ["condition score >= 60 evaluated to true", "took if branch"],
+          "changes": [
+            "condition score >= 60 evaluated to true",
+            "took if branch"
+          ],
           "explanation": "72 >= 60 evaluates to true. The if branch will execute; the else branch will be skipped.",
           "kind": "condition",
-          "label": "Check score >= 60  →  true",
+          "label": "Check score >= 60  \u2192  true",
           "condition": "score >= 60",
           "condition_result": true
         },
         {
           "step": 3,
           "line": 3,
-          "variables": { "score": 72 },
-          "output": ["Pass"],
-          "changes": ["printed \"Pass\""],
+          "variables": {
+            "score": 72
+          },
+          "output": [
+            "Pass"
+          ],
+          "changes": [
+            "printed \"Pass\""
+          ],
           "explanation": "Because the condition was true, \"Pass\" is printed. The else block is not executed.",
           "kind": "print",
           "label": "System.out.println(\"Pass\")"
@@ -192,7 +274,7 @@
     },
     {
       "id": "while-countdown",
-      "name": "While Loop — Countdown",
+      "name": "While Loop \u2014 Countdown",
       "description": "Print n down to 1 using a while loop.",
       "concept": "while-loop",
       "code": "int n = 3;\nwhile (n > 0) {\n    System.out.println(n);\n    n--;\n}",
@@ -200,9 +282,13 @@
         {
           "step": 1,
           "line": 1,
-          "variables": { "n": 3 },
+          "variables": {
+            "n": 3
+          },
           "output": [],
-          "changes": ["n initialized to 3"],
+          "changes": [
+            "n initialized to 3"
+          ],
           "explanation": "The variable n is initialized to 3. This value controls how many times the loop runs.",
           "kind": "declare",
           "label": "Declare n = 3"
@@ -210,110 +296,2217 @@
         {
           "step": 2,
           "line": 2,
-          "variables": { "n": 3 },
+          "variables": {
+            "n": 3
+          },
           "output": [],
-          "changes": ["condition n > 0 evaluated to true"],
+          "changes": [
+            "condition n > 0 evaluated to true"
+          ],
           "explanation": "3 > 0 is true, so the loop body runs.",
           "kind": "condition",
-          "label": "Check n > 0  →  true",
+          "label": "Check n > 0  \u2192  true",
           "condition": "n > 0",
           "condition_result": true
         },
         {
           "step": 3,
           "line": 3,
-          "variables": { "n": 3 },
-          "output": ["3"],
-          "changes": ["printed \"3\""],
+          "variables": {
+            "n": 3
+          },
+          "output": [
+            "3"
+          ],
+          "changes": [
+            "printed \"3\""
+          ],
           "explanation": "The current value of n (3) is printed to the console.",
           "kind": "print",
-          "label": "System.out.println(n)  →  3"
+          "label": "System.out.println(n)  \u2192  3"
         },
         {
           "step": 4,
           "line": 4,
-          "variables": { "n": 2 },
-          "output": ["3"],
-          "changes": ["n changed from 3 to 2"],
+          "variables": {
+            "n": 2
+          },
+          "output": [
+            "3"
+          ],
+          "changes": [
+            "n changed from 3 to 2"
+          ],
           "explanation": "n is decremented to 2. The condition will be re-evaluated at the top of the loop.",
           "kind": "assign",
-          "label": "n--  →  n = 2"
+          "label": "n--  \u2192  n = 2"
         },
         {
           "step": 5,
           "line": 2,
-          "variables": { "n": 2 },
-          "output": ["3"],
-          "changes": ["condition n > 0 evaluated to true"],
+          "variables": {
+            "n": 2
+          },
+          "output": [
+            "3"
+          ],
+          "changes": [
+            "condition n > 0 evaluated to true"
+          ],
           "explanation": "2 > 0 is true, so the body runs again.",
           "kind": "condition",
-          "label": "Check n > 0  →  true",
+          "label": "Check n > 0  \u2192  true",
           "condition": "n > 0",
           "condition_result": true
         },
         {
           "step": 6,
           "line": 3,
-          "variables": { "n": 2 },
-          "output": ["3", "2"],
-          "changes": ["printed \"2\""],
+          "variables": {
+            "n": 2
+          },
+          "output": [
+            "3",
+            "2"
+          ],
+          "changes": [
+            "printed \"2\""
+          ],
           "explanation": "The value 2 is appended to the output.",
           "kind": "print",
-          "label": "System.out.println(n)  →  2"
+          "label": "System.out.println(n)  \u2192  2"
         },
         {
           "step": 7,
           "line": 4,
-          "variables": { "n": 1 },
-          "output": ["3", "2"],
-          "changes": ["n changed from 2 to 1"],
+          "variables": {
+            "n": 1
+          },
+          "output": [
+            "3",
+            "2"
+          ],
+          "changes": [
+            "n changed from 2 to 1"
+          ],
           "explanation": "n is decremented to 1.",
           "kind": "assign",
-          "label": "n--  →  n = 1"
+          "label": "n--  \u2192  n = 1"
         },
         {
           "step": 8,
           "line": 2,
-          "variables": { "n": 1 },
-          "output": ["3", "2"],
-          "changes": ["condition n > 0 evaluated to true"],
+          "variables": {
+            "n": 1
+          },
+          "output": [
+            "3",
+            "2"
+          ],
+          "changes": [
+            "condition n > 0 evaluated to true"
+          ],
           "explanation": "1 > 0 is true, so the body runs one more time.",
           "kind": "condition",
-          "label": "Check n > 0  →  true",
+          "label": "Check n > 0  \u2192  true",
           "condition": "n > 0",
           "condition_result": true
         },
         {
           "step": 9,
           "line": 3,
-          "variables": { "n": 1 },
-          "output": ["3", "2", "1"],
-          "changes": ["printed \"1\""],
+          "variables": {
+            "n": 1
+          },
+          "output": [
+            "3",
+            "2",
+            "1"
+          ],
+          "changes": [
+            "printed \"1\""
+          ],
           "explanation": "The value 1 is appended to the output.",
           "kind": "print",
-          "label": "System.out.println(n)  →  1"
+          "label": "System.out.println(n)  \u2192  1"
         },
         {
           "step": 10,
           "line": 4,
-          "variables": { "n": 0 },
-          "output": ["3", "2", "1"],
-          "changes": ["n changed from 1 to 0"],
+          "variables": {
+            "n": 0
+          },
+          "output": [
+            "3",
+            "2",
+            "1"
+          ],
+          "changes": [
+            "n changed from 1 to 0"
+          ],
           "explanation": "n is decremented to 0.",
           "kind": "assign",
-          "label": "n--  →  n = 0"
+          "label": "n--  \u2192  n = 0"
         },
         {
           "step": 11,
           "line": 2,
-          "variables": { "n": 0 },
-          "output": ["3", "2", "1"],
-          "changes": ["condition n > 0 evaluated to false", "loop exited"],
+          "variables": {
+            "n": 0
+          },
+          "output": [
+            "3",
+            "2",
+            "1"
+          ],
+          "changes": [
+            "condition n > 0 evaluated to false",
+            "loop exited"
+          ],
           "explanation": "0 > 0 is false, so the loop terminates. The program ends here.",
           "kind": "condition",
-          "label": "Check n > 0  →  false",
+          "label": "Check n > 0  \u2192  false",
           "condition": "n > 0",
           "condition_result": false
+        }
+      ]
+    },
+    {
+      "id": "nested-loops-table",
+      "name": "Nested Loops \u2014 Multiplication Table",
+      "description": "Compute the sum of i * j for i and j from 1 to 3 using nested loops.",
+      "concept": "nested-loops",
+      "code": "int total = 0;\nfor (int i = 1; i <= 3; i++) {\n    for (int j = 1; j <= 3; j++) {\n        total += i * j;\n    }\n}\nSystem.out.println(total);",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "total": 0
+          },
+          "output": [],
+          "changes": [
+            "total initialized to 0"
+          ],
+          "explanation": "The variable total is declared and initialized to 0.",
+          "kind": "declare",
+          "label": "Declare total = 0"
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "total": 0,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 1"
+          ],
+          "explanation": "The loop counter i is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize i = 1"
+        },
+        {
+          "step": 3,
+          "line": 2,
+          "variables": {
+            "total": 0,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to true (i = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  true",
+          "condition": "i <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 4,
+          "line": 3,
+          "variables": {
+            "total": 0,
+            "i": 1,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "j initialized to 1"
+          ],
+          "explanation": "The loop counter j is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize j = 1"
+        },
+        {
+          "step": 5,
+          "line": 3,
+          "variables": {
+            "total": 0,
+            "i": 1,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 6,
+          "line": 4,
+          "variables": {
+            "total": 1,
+            "i": 1,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "total changed from 0 to 1"
+          ],
+          "explanation": "total += i * j updates total. It changes from 0 to 1.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 1"
+        },
+        {
+          "step": 7,
+          "line": 3,
+          "variables": {
+            "total": 1,
+            "i": 1,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 1 to 2"
+          ],
+          "explanation": "j is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 2"
+        },
+        {
+          "step": 8,
+          "line": 3,
+          "variables": {
+            "total": 1,
+            "i": 1,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 9,
+          "line": 4,
+          "variables": {
+            "total": 3,
+            "i": 1,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "total changed from 1 to 3"
+          ],
+          "explanation": "total += i * j updates total. It changes from 1 to 3.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 3"
+        },
+        {
+          "step": 10,
+          "line": 3,
+          "variables": {
+            "total": 3,
+            "i": 1,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 2 to 3"
+          ],
+          "explanation": "j is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 3"
+        },
+        {
+          "step": 11,
+          "line": 3,
+          "variables": {
+            "total": 3,
+            "i": 1,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 12,
+          "line": 4,
+          "variables": {
+            "total": 6,
+            "i": 1,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "total changed from 3 to 6"
+          ],
+          "explanation": "total += i * j updates total. It changes from 3 to 6.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 6"
+        },
+        {
+          "step": 13,
+          "line": 3,
+          "variables": {
+            "total": 6,
+            "i": 1,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 3 to 4"
+          ],
+          "explanation": "j is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 4"
+        },
+        {
+          "step": 14,
+          "line": 3,
+          "variables": {
+            "total": 6,
+            "i": 1,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to false (j = 4), so the loop exits.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  false",
+          "condition": "j <= 3",
+          "condition_result": false
+        },
+        {
+          "step": 15,
+          "line": 2,
+          "variables": {
+            "total": 6,
+            "i": 2,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 2"
+        },
+        {
+          "step": 16,
+          "line": 2,
+          "variables": {
+            "total": 6,
+            "i": 2,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to true (i = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  true",
+          "condition": "i <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 17,
+          "line": 3,
+          "variables": {
+            "total": 6,
+            "i": 2,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "j initialized to 1"
+          ],
+          "explanation": "The loop counter j is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize j = 1"
+        },
+        {
+          "step": 18,
+          "line": 3,
+          "variables": {
+            "total": 6,
+            "i": 2,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 19,
+          "line": 4,
+          "variables": {
+            "total": 8,
+            "i": 2,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "total changed from 6 to 8"
+          ],
+          "explanation": "total += i * j updates total. It changes from 6 to 8.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 8"
+        },
+        {
+          "step": 20,
+          "line": 3,
+          "variables": {
+            "total": 8,
+            "i": 2,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 1 to 2"
+          ],
+          "explanation": "j is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 2"
+        },
+        {
+          "step": 21,
+          "line": 3,
+          "variables": {
+            "total": 8,
+            "i": 2,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 22,
+          "line": 4,
+          "variables": {
+            "total": 12,
+            "i": 2,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "total changed from 8 to 12"
+          ],
+          "explanation": "total += i * j updates total. It changes from 8 to 12.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 12"
+        },
+        {
+          "step": 23,
+          "line": 3,
+          "variables": {
+            "total": 12,
+            "i": 2,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 2 to 3"
+          ],
+          "explanation": "j is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 3"
+        },
+        {
+          "step": 24,
+          "line": 3,
+          "variables": {
+            "total": 12,
+            "i": 2,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 25,
+          "line": 4,
+          "variables": {
+            "total": 18,
+            "i": 2,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "total changed from 12 to 18"
+          ],
+          "explanation": "total += i * j updates total. It changes from 12 to 18.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 18"
+        },
+        {
+          "step": 26,
+          "line": 3,
+          "variables": {
+            "total": 18,
+            "i": 2,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 3 to 4"
+          ],
+          "explanation": "j is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 4"
+        },
+        {
+          "step": 27,
+          "line": 3,
+          "variables": {
+            "total": 18,
+            "i": 2,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to false (j = 4), so the loop exits.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  false",
+          "condition": "j <= 3",
+          "condition_result": false
+        },
+        {
+          "step": 28,
+          "line": 2,
+          "variables": {
+            "total": 18,
+            "i": 3,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
+          "explanation": "i is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 3"
+        },
+        {
+          "step": 29,
+          "line": 2,
+          "variables": {
+            "total": 18,
+            "i": 3,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to true (i = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  true",
+          "condition": "i <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 30,
+          "line": 3,
+          "variables": {
+            "total": 18,
+            "i": 3,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "j initialized to 1"
+          ],
+          "explanation": "The loop counter j is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize j = 1"
+        },
+        {
+          "step": 31,
+          "line": 3,
+          "variables": {
+            "total": 18,
+            "i": 3,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 32,
+          "line": 4,
+          "variables": {
+            "total": 21,
+            "i": 3,
+            "j": 1
+          },
+          "output": [],
+          "changes": [
+            "total changed from 18 to 21"
+          ],
+          "explanation": "total += i * j updates total. It changes from 18 to 21.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 21"
+        },
+        {
+          "step": 33,
+          "line": 3,
+          "variables": {
+            "total": 21,
+            "i": 3,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 1 to 2"
+          ],
+          "explanation": "j is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 2"
+        },
+        {
+          "step": 34,
+          "line": 3,
+          "variables": {
+            "total": 21,
+            "i": 3,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 35,
+          "line": 4,
+          "variables": {
+            "total": 27,
+            "i": 3,
+            "j": 2
+          },
+          "output": [],
+          "changes": [
+            "total changed from 21 to 27"
+          ],
+          "explanation": "total += i * j updates total. It changes from 21 to 27.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 27"
+        },
+        {
+          "step": 36,
+          "line": 3,
+          "variables": {
+            "total": 27,
+            "i": 3,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 2 to 3"
+          ],
+          "explanation": "j is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 3"
+        },
+        {
+          "step": 37,
+          "line": 3,
+          "variables": {
+            "total": 27,
+            "i": 3,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to true (j = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  true",
+          "condition": "j <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 38,
+          "line": 4,
+          "variables": {
+            "total": 36,
+            "i": 3,
+            "j": 3
+          },
+          "output": [],
+          "changes": [
+            "total changed from 27 to 36"
+          ],
+          "explanation": "total += i * j updates total. It changes from 27 to 36.",
+          "kind": "assign",
+          "label": "total += i * j  \u2192  total = 36"
+        },
+        {
+          "step": 39,
+          "line": 3,
+          "variables": {
+            "total": 36,
+            "i": 3,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "j incremented from 3 to 4"
+          ],
+          "explanation": "j is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "j++  \u2192  j = 4"
+        },
+        {
+          "step": 40,
+          "line": 3,
+          "variables": {
+            "total": 36,
+            "i": 3,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "condition j <= 3 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'j <= 3' evaluates to false (j = 4), so the loop exits.",
+          "kind": "condition",
+          "label": "Check j <= 3  \u2192  false",
+          "condition": "j <= 3",
+          "condition_result": false
+        },
+        {
+          "step": 41,
+          "line": 2,
+          "variables": {
+            "total": 36,
+            "i": 4,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 3 to 4"
+          ],
+          "explanation": "i is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 4"
+        },
+        {
+          "step": 42,
+          "line": 2,
+          "variables": {
+            "total": 36,
+            "i": 4,
+            "j": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to false (i = 4), so the loop exits.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  false",
+          "condition": "i <= 3",
+          "condition_result": false
+        },
+        {
+          "step": 43,
+          "line": 7,
+          "variables": {
+            "total": 36,
+            "i": 4,
+            "j": 4
+          },
+          "output": [
+            "36"
+          ],
+          "changes": [
+            "printed \"36\""
+          ],
+          "explanation": "The value 36 is printed to the console.",
+          "kind": "print",
+          "label": "System.out.println(total)"
+        }
+      ]
+    },
+    {
+      "id": "max-scan",
+      "name": "Min/Max \u2014 Find Largest",
+      "description": "Track the largest value seen so far while scanning integers from 1 to 5.",
+      "concept": "min-max",
+      "code": "int best = 0;\nfor (int i = 1; i <= 5; i++) {\n    if (i > best) {\n        best = i;\n    }\n}\nSystem.out.println(best);",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "best": 0
+          },
+          "output": [],
+          "changes": [
+            "best initialized to 0"
+          ],
+          "explanation": "The variable best is declared and initialized to 0.",
+          "kind": "declare",
+          "label": "Declare best = 0"
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "best": 0,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 1"
+          ],
+          "explanation": "The loop counter i is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize i = 1"
+        },
+        {
+          "step": 3,
+          "line": 2,
+          "variables": {
+            "best": 0,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 5 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 5' evaluates to true (i = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 5  \u2192  true",
+          "condition": "i <= 5",
+          "condition_result": true
+        },
+        {
+          "step": 4,
+          "line": 3,
+          "variables": {
+            "best": 0,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i > best evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'i > best' evaluates to true (i = 1, best = 0). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check i > best  \u2192  true",
+          "condition": "i > best",
+          "condition_result": true
+        },
+        {
+          "step": 5,
+          "line": 4,
+          "variables": {
+            "best": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "best changed from 0 to 1"
+          ],
+          "explanation": "best = i updates best. It changes from 0 to 1.",
+          "kind": "assign",
+          "label": "best = i  \u2192  best = 1"
+        },
+        {
+          "step": 6,
+          "line": 2,
+          "variables": {
+            "best": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 2"
+        },
+        {
+          "step": 7,
+          "line": 2,
+          "variables": {
+            "best": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 5 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 5' evaluates to true (i = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 5  \u2192  true",
+          "condition": "i <= 5",
+          "condition_result": true
+        },
+        {
+          "step": 8,
+          "line": 3,
+          "variables": {
+            "best": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition i > best evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'i > best' evaluates to true (i = 2, best = 1). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check i > best  \u2192  true",
+          "condition": "i > best",
+          "condition_result": true
+        },
+        {
+          "step": 9,
+          "line": 4,
+          "variables": {
+            "best": 2,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "best changed from 1 to 2"
+          ],
+          "explanation": "best = i updates best. It changes from 1 to 2.",
+          "kind": "assign",
+          "label": "best = i  \u2192  best = 2"
+        },
+        {
+          "step": 10,
+          "line": 2,
+          "variables": {
+            "best": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
+          "explanation": "i is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 3"
+        },
+        {
+          "step": 11,
+          "line": 2,
+          "variables": {
+            "best": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 5 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 5' evaluates to true (i = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 5  \u2192  true",
+          "condition": "i <= 5",
+          "condition_result": true
+        },
+        {
+          "step": 12,
+          "line": 3,
+          "variables": {
+            "best": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "condition i > best evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'i > best' evaluates to true (i = 3, best = 2). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check i > best  \u2192  true",
+          "condition": "i > best",
+          "condition_result": true
+        },
+        {
+          "step": 13,
+          "line": 4,
+          "variables": {
+            "best": 3,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "best changed from 2 to 3"
+          ],
+          "explanation": "best = i updates best. It changes from 2 to 3.",
+          "kind": "assign",
+          "label": "best = i  \u2192  best = 3"
+        },
+        {
+          "step": 14,
+          "line": 2,
+          "variables": {
+            "best": 3,
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 3 to 4"
+          ],
+          "explanation": "i is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 4"
+        },
+        {
+          "step": 15,
+          "line": 2,
+          "variables": {
+            "best": 3,
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 5 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 5' evaluates to true (i = 4), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 5  \u2192  true",
+          "condition": "i <= 5",
+          "condition_result": true
+        },
+        {
+          "step": 16,
+          "line": 3,
+          "variables": {
+            "best": 3,
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i > best evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'i > best' evaluates to true (i = 4, best = 3). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check i > best  \u2192  true",
+          "condition": "i > best",
+          "condition_result": true
+        },
+        {
+          "step": 17,
+          "line": 4,
+          "variables": {
+            "best": 4,
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "best changed from 3 to 4"
+          ],
+          "explanation": "best = i updates best. It changes from 3 to 4.",
+          "kind": "assign",
+          "label": "best = i  \u2192  best = 4"
+        },
+        {
+          "step": 18,
+          "line": 2,
+          "variables": {
+            "best": 4,
+            "i": 5
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 4 to 5"
+          ],
+          "explanation": "i is incremented to 5. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 5"
+        },
+        {
+          "step": 19,
+          "line": 2,
+          "variables": {
+            "best": 4,
+            "i": 5
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 5 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 5' evaluates to true (i = 5), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 5  \u2192  true",
+          "condition": "i <= 5",
+          "condition_result": true
+        },
+        {
+          "step": 20,
+          "line": 3,
+          "variables": {
+            "best": 4,
+            "i": 5
+          },
+          "output": [],
+          "changes": [
+            "condition i > best evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'i > best' evaluates to true (i = 5, best = 4). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check i > best  \u2192  true",
+          "condition": "i > best",
+          "condition_result": true
+        },
+        {
+          "step": 21,
+          "line": 4,
+          "variables": {
+            "best": 5,
+            "i": 5
+          },
+          "output": [],
+          "changes": [
+            "best changed from 4 to 5"
+          ],
+          "explanation": "best = i updates best. It changes from 4 to 5.",
+          "kind": "assign",
+          "label": "best = i  \u2192  best = 5"
+        },
+        {
+          "step": 22,
+          "line": 2,
+          "variables": {
+            "best": 5,
+            "i": 6
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 5 to 6"
+          ],
+          "explanation": "i is incremented to 6. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 6"
+        },
+        {
+          "step": 23,
+          "line": 2,
+          "variables": {
+            "best": 5,
+            "i": 6
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 5 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i <= 5' evaluates to false (i = 6), so the loop exits.",
+          "kind": "condition",
+          "label": "Check i <= 5  \u2192  false",
+          "condition": "i <= 5",
+          "condition_result": false
+        },
+        {
+          "step": 24,
+          "line": 7,
+          "variables": {
+            "best": 5,
+            "i": 6
+          },
+          "output": [
+            "5"
+          ],
+          "changes": [
+            "printed \"5\""
+          ],
+          "explanation": "The value 5 is printed to the console.",
+          "kind": "print",
+          "label": "System.out.println(best)"
+        }
+      ]
+    },
+    {
+      "id": "flag-toggle",
+      "name": "Boolean Flag \u2014 Toggle",
+      "description": "Toggle a boolean flag each iteration and count how many times it becomes true.",
+      "concept": "flag",
+      "code": "boolean flag = false;\nint on = 0;\nfor (int i = 0; i < 4; i++) {\n    flag = !flag;\n    if (flag) {\n        on++;\n    }\n}\nSystem.out.println(on);",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "flag": false
+          },
+          "output": [],
+          "changes": [
+            "flag initialized to false"
+          ],
+          "explanation": "The variable flag is declared and initialized to false.",
+          "kind": "declare",
+          "label": "Declare flag = false"
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "flag": false,
+            "on": 0
+          },
+          "output": [],
+          "changes": [
+            "on initialized to 0"
+          ],
+          "explanation": "The variable on is declared and initialized to 0.",
+          "kind": "declare",
+          "label": "Declare on = 0"
+        },
+        {
+          "step": 3,
+          "line": 3,
+          "variables": {
+            "flag": false,
+            "on": 0,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 0"
+          ],
+          "explanation": "The loop counter i is initialized to 0. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize i = 0"
+        },
+        {
+          "step": 4,
+          "line": 3,
+          "variables": {
+            "flag": false,
+            "on": 0,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "condition i < 4 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < 4' evaluates to true (i = 0), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < 4  \u2192  true",
+          "condition": "i < 4",
+          "condition_result": true
+        },
+        {
+          "step": 5,
+          "line": 4,
+          "variables": {
+            "flag": true,
+            "on": 0,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "flag changed from false to true"
+          ],
+          "explanation": "flag = !flag updates flag. It changes from false to true.",
+          "kind": "assign",
+          "label": "flag = !flag  \u2192  flag = true"
+        },
+        {
+          "step": 6,
+          "line": 5,
+          "variables": {
+            "flag": true,
+            "on": 0,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "condition flag evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'flag' evaluates to true (flag = true). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check flag  \u2192  true",
+          "condition": "flag",
+          "condition_result": true
+        },
+        {
+          "step": 7,
+          "line": 6,
+          "variables": {
+            "flag": true,
+            "on": 1,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "on changed from 0 to 1"
+          ],
+          "explanation": "on is incremented to 1.",
+          "kind": "assign",
+          "label": "on++  \u2192  on = 1"
+        },
+        {
+          "step": 8,
+          "line": 3,
+          "variables": {
+            "flag": true,
+            "on": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 0 to 1"
+          ],
+          "explanation": "i is incremented to 1. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 1"
+        },
+        {
+          "step": 9,
+          "line": 3,
+          "variables": {
+            "flag": true,
+            "on": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i < 4 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < 4' evaluates to true (i = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < 4  \u2192  true",
+          "condition": "i < 4",
+          "condition_result": true
+        },
+        {
+          "step": 10,
+          "line": 4,
+          "variables": {
+            "flag": false,
+            "on": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "flag changed from true to false"
+          ],
+          "explanation": "flag = !flag updates flag. It changes from true to false.",
+          "kind": "assign",
+          "label": "flag = !flag  \u2192  flag = false"
+        },
+        {
+          "step": 11,
+          "line": 5,
+          "variables": {
+            "flag": false,
+            "on": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition flag evaluated to false",
+            "took else branch"
+          ],
+          "explanation": "The condition 'flag' evaluates to false (flag = false). The if branch is skipped.",
+          "kind": "condition",
+          "label": "Check flag  \u2192  false",
+          "condition": "flag",
+          "condition_result": false
+        },
+        {
+          "step": 12,
+          "line": 3,
+          "variables": {
+            "flag": false,
+            "on": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 2"
+        },
+        {
+          "step": 13,
+          "line": 3,
+          "variables": {
+            "flag": false,
+            "on": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition i < 4 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < 4' evaluates to true (i = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < 4  \u2192  true",
+          "condition": "i < 4",
+          "condition_result": true
+        },
+        {
+          "step": 14,
+          "line": 4,
+          "variables": {
+            "flag": true,
+            "on": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "flag changed from false to true"
+          ],
+          "explanation": "flag = !flag updates flag. It changes from false to true.",
+          "kind": "assign",
+          "label": "flag = !flag  \u2192  flag = true"
+        },
+        {
+          "step": 15,
+          "line": 5,
+          "variables": {
+            "flag": true,
+            "on": 1,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition flag evaluated to true",
+            "took if branch"
+          ],
+          "explanation": "The condition 'flag' evaluates to true (flag = true). The if branch will execute; the else branch is skipped.",
+          "kind": "condition",
+          "label": "Check flag  \u2192  true",
+          "condition": "flag",
+          "condition_result": true
+        },
+        {
+          "step": 16,
+          "line": 6,
+          "variables": {
+            "flag": true,
+            "on": 2,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "on changed from 1 to 2"
+          ],
+          "explanation": "on is incremented to 2.",
+          "kind": "assign",
+          "label": "on++  \u2192  on = 2"
+        },
+        {
+          "step": 17,
+          "line": 3,
+          "variables": {
+            "flag": true,
+            "on": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
+          "explanation": "i is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 3"
+        },
+        {
+          "step": 18,
+          "line": 3,
+          "variables": {
+            "flag": true,
+            "on": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "condition i < 4 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < 4' evaluates to true (i = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < 4  \u2192  true",
+          "condition": "i < 4",
+          "condition_result": true
+        },
+        {
+          "step": 19,
+          "line": 4,
+          "variables": {
+            "flag": false,
+            "on": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "flag changed from true to false"
+          ],
+          "explanation": "flag = !flag updates flag. It changes from true to false.",
+          "kind": "assign",
+          "label": "flag = !flag  \u2192  flag = false"
+        },
+        {
+          "step": 20,
+          "line": 5,
+          "variables": {
+            "flag": false,
+            "on": 2,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "condition flag evaluated to false",
+            "took else branch"
+          ],
+          "explanation": "The condition 'flag' evaluates to false (flag = false). The if branch is skipped.",
+          "kind": "condition",
+          "label": "Check flag  \u2192  false",
+          "condition": "flag",
+          "condition_result": false
+        },
+        {
+          "step": 21,
+          "line": 3,
+          "variables": {
+            "flag": false,
+            "on": 2,
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 3 to 4"
+          ],
+          "explanation": "i is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 4"
+        },
+        {
+          "step": 22,
+          "line": 3,
+          "variables": {
+            "flag": false,
+            "on": 2,
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i < 4 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i < 4' evaluates to false (i = 4), so the loop exits.",
+          "kind": "condition",
+          "label": "Check i < 4  \u2192  false",
+          "condition": "i < 4",
+          "condition_result": false
+        },
+        {
+          "step": 23,
+          "line": 9,
+          "variables": {
+            "flag": false,
+            "on": 2,
+            "i": 4
+          },
+          "output": [
+            "2"
+          ],
+          "changes": [
+            "printed \"2\""
+          ],
+          "explanation": "The value 2 is printed to the console.",
+          "kind": "print",
+          "label": "System.out.println(on)"
+        }
+      ]
+    },
+    {
+      "id": "string-accum",
+      "name": "String Accumulation \u2014 Build Output",
+      "description": "Build a string by appending a star in each iteration of the loop.",
+      "concept": "string-accum",
+      "code": "String s = \"\";\nfor (int i = 1; i <= 3; i++) {\n    s = s + \"*\";\n}\nSystem.out.println(s);",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "s": ""
+          },
+          "output": [],
+          "changes": [
+            "s initialized to "
+          ],
+          "explanation": "The variable s is declared and initialized to .",
+          "kind": "declare",
+          "label": "Declare s = "
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "s": "",
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 1"
+          ],
+          "explanation": "The loop counter i is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize i = 1"
+        },
+        {
+          "step": 3,
+          "line": 2,
+          "variables": {
+            "s": "",
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to true (i = 1), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  true",
+          "condition": "i <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 4,
+          "line": 3,
+          "variables": {
+            "s": "*",
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "s changed from  to *"
+          ],
+          "explanation": "s = s + \"*\" updates s. It changes from  to *.",
+          "kind": "assign",
+          "label": "s = s + \"*\"  \u2192  s = *"
+        },
+        {
+          "step": 5,
+          "line": 2,
+          "variables": {
+            "s": "*",
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 2"
+        },
+        {
+          "step": 6,
+          "line": 2,
+          "variables": {
+            "s": "*",
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to true (i = 2), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  true",
+          "condition": "i <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 7,
+          "line": 3,
+          "variables": {
+            "s": "**",
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "s changed from * to **"
+          ],
+          "explanation": "s = s + \"*\" updates s. It changes from * to **.",
+          "kind": "assign",
+          "label": "s = s + \"*\"  \u2192  s = **"
+        },
+        {
+          "step": 8,
+          "line": 2,
+          "variables": {
+            "s": "**",
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
+          "explanation": "i is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 3"
+        },
+        {
+          "step": 9,
+          "line": 2,
+          "variables": {
+            "s": "**",
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to true (i = 3), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  true",
+          "condition": "i <= 3",
+          "condition_result": true
+        },
+        {
+          "step": 10,
+          "line": 3,
+          "variables": {
+            "s": "***",
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "s changed from ** to ***"
+          ],
+          "explanation": "s = s + \"*\" updates s. It changes from ** to ***.",
+          "kind": "assign",
+          "label": "s = s + \"*\"  \u2192  s = ***"
+        },
+        {
+          "step": 11,
+          "line": 2,
+          "variables": {
+            "s": "***",
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 3 to 4"
+          ],
+          "explanation": "i is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 4"
+        },
+        {
+          "step": 12,
+          "line": 2,
+          "variables": {
+            "s": "***",
+            "i": 4
+          },
+          "output": [],
+          "changes": [
+            "condition i <= 3 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i <= 3' evaluates to false (i = 4), so the loop exits.",
+          "kind": "condition",
+          "label": "Check i <= 3  \u2192  false",
+          "condition": "i <= 3",
+          "condition_result": false
+        },
+        {
+          "step": 13,
+          "line": 5,
+          "variables": {
+            "s": "***",
+            "i": 4
+          },
+          "output": [
+            "***"
+          ],
+          "changes": [
+            "printed \"***\""
+          ],
+          "explanation": "The value *** is printed to the console.",
+          "kind": "print",
+          "label": "System.out.println(s)"
+        }
+      ]
+    },
+    {
+      "id": "array-sum",
+      "name": "Arrays \u2014 Sum Elements",
+      "description": "Compute the sum of the elements in an array using a for loop and indexing.",
+      "concept": "arrays",
+      "code": "int[] b = {1, 2, 3};\nint sum = 0;\nfor (int i = 0; i < b.length; i++) {\n    sum += b[i];\n}\nSystem.out.println(sum);",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ]
+          },
+          "output": [],
+          "changes": [
+            "b initialized to [1, 2, 3]"
+          ],
+          "explanation": "The variable b is declared and initialized to [1, 2, 3].",
+          "kind": "declare",
+          "label": "Declare b = [1, 2, 3]"
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 0
+          },
+          "output": [],
+          "changes": [
+            "sum initialized to 0"
+          ],
+          "explanation": "The variable sum is declared and initialized to 0.",
+          "kind": "declare",
+          "label": "Declare sum = 0"
+        },
+        {
+          "step": 3,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 0,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 0"
+          ],
+          "explanation": "The loop counter i is initialized to 0. The condition will be evaluated next.",
+          "kind": "loop-init",
+          "label": "Initialize i = 0"
+        },
+        {
+          "step": 4,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 0,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "condition i < b.length evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < b.length' evaluates to true (i = 0, b = [1, 2, 3]), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < b.length  \u2192  true",
+          "condition": "i < b.length",
+          "condition_result": true
+        },
+        {
+          "step": 5,
+          "line": 4,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 1,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "sum changed from 0 to 1"
+          ],
+          "explanation": "sum += b[i] updates sum. It changes from 0 to 1.",
+          "kind": "assign",
+          "label": "sum += b[i]  \u2192  sum = 1"
+        },
+        {
+          "step": 6,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 0 to 1"
+          ],
+          "explanation": "i is incremented to 1. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 1"
+        },
+        {
+          "step": 7,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i < b.length evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < b.length' evaluates to true (i = 1, b = [1, 2, 3]), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < b.length  \u2192  true",
+          "condition": "i < b.length",
+          "condition_result": true
+        },
+        {
+          "step": 8,
+          "line": 4,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 3,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "sum changed from 1 to 3"
+          ],
+          "explanation": "sum += b[i] updates sum. It changes from 1 to 3.",
+          "kind": "assign",
+          "label": "sum += b[i]  \u2192  sum = 3"
+        },
+        {
+          "step": 9,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 3,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 2"
+        },
+        {
+          "step": 10,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 3,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition i < b.length evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < b.length' evaluates to true (i = 2, b = [1, 2, 3]), so we enter the loop body.",
+          "kind": "condition",
+          "label": "Check i < b.length  \u2192  true",
+          "condition": "i < b.length",
+          "condition_result": true
+        },
+        {
+          "step": 11,
+          "line": 4,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 6,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "sum changed from 3 to 6"
+          ],
+          "explanation": "sum += b[i] updates sum. It changes from 3 to 6.",
+          "kind": "assign",
+          "label": "sum += b[i]  \u2192  sum = 6"
+        },
+        {
+          "step": 12,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 6,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
+          "explanation": "i is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step",
+          "label": "i++  \u2192  i = 3"
+        },
+        {
+          "step": 13,
+          "line": 3,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 6,
+            "i": 3
+          },
+          "output": [],
+          "changes": [
+            "condition i < b.length evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i < b.length' evaluates to false (i = 3, b = [1, 2, 3]), so the loop exits.",
+          "kind": "condition",
+          "label": "Check i < b.length  \u2192  false",
+          "condition": "i < b.length",
+          "condition_result": false
+        },
+        {
+          "step": 14,
+          "line": 6,
+          "variables": {
+            "b": [
+              1,
+              2,
+              3
+            ],
+            "sum": 6,
+            "i": 3
+          },
+          "output": [
+            "6"
+          ],
+          "changes": [
+            "printed \"6\""
+          ],
+          "explanation": "The value 6 is printed to the console.",
+          "kind": "print",
+          "label": "System.out.println(sum)"
         }
       ]
     }

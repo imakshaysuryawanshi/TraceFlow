@@ -35,27 +35,23 @@ export const SCHEMA_VERSION = "1.0";
 export const STEP_REQUIRED_FIELDS = [
   "step",
   "line",
-  "variables",
-  "output",
+  "code",
+  "type",
+  "state",
   "changes",
-  "explanation",
+  "control",
+  "reasoning",
 ];
 
 /**
- * Return the set of variable names whose value differs between prev and current
- * step. Derived from the canonical `variables` snapshot — DO NOT rely on
- * optional trace fields for this.
- * @param {Step|null} current
- * @param {Step|null} prev
- * @returns {Set<string>}
+ * Return the set of variable names whose value differs between prev and current step.
  */
 export function diffChangedVars(current, prev) {
   const changed = new Set();
   if (!current) return changed;
-  const cur = current.variables || {};
-  const p = prev?.variables || {};
+  const cur = current.state?.variables || current.variables || {};
+  const p = prev?.state?.variables || prev?.variables || {};
   for (const key of Object.keys(cur)) {
-    // Compare by JSON to handle numbers/booleans/strings uniformly
     if (JSON.stringify(p[key]) !== JSON.stringify(cur[key])) {
       changed.add(key);
     }
@@ -72,14 +68,19 @@ export function validateStep(step) {
   for (const key of STEP_REQUIRED_FIELDS) {
     if (!(key in step)) problems.push(`missing required field: ${key}`);
   }
-  if ("variables" in step && (step.variables === null || typeof step.variables !== "object")) {
-    problems.push("variables must be an object");
-  }
-  if ("output" in step && !Array.isArray(step.output)) {
-    problems.push("output must be an array of strings");
+  if ("state" in step && (step.state === null || typeof step.state !== "object")) {
+    problems.push("state must be an object");
+  } else if (step.state) {
+    if (!("variables" in step.state)) problems.push("state must contain variables");
   }
   if ("changes" in step && !Array.isArray(step.changes)) {
-    problems.push("changes must be an array of strings");
+    problems.push("changes must be an array");
+  }
+  if ("control" in step && (step.control === null || typeof step.control !== "object")) {
+    problems.push("control must be an object");
+  }
+  if ("reasoning" in step && (step.reasoning === null || typeof step.reasoning !== "object")) {
+    problems.push("reasoning must be an object");
   }
   return problems;
 }

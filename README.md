@@ -1,6 +1,8 @@
-# TraceFlow — "Follow every step your code takes."
+# Traceflow
 
-TraceFlow is an interactive learning tool that visualizes step-by-step code execution in real-time. Designed specifically for programming beginners, students, and self-taught developers, TraceFlow allows you to write snippets, step through loops, inspect variable state changes, and read AI-powered line-by-line explanations.
+> Traceflow helps you think like a programmer by turning code into step-by-step execution you can see, track, and understand.
+
+Traceflow is an interactive learning tool that visualizes step-by-step code execution in real-time. Designed specifically for programming beginners, students, and self-taught developers, Traceflow allows you to write snippets, step through loops, inspect variable state changes, and read AI-powered line-by-line explanations.
 
 ---
 

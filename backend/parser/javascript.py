@@ -115,19 +115,45 @@ def _expr(node: Any, ctx: _Ctx) -> Dict[str, Any]:
         )
 
     if t == "CallExpression":
+        # `console.log` handled at statement level; other calls rejected.
         raise ParserError(
             "function calls are not supported (only `console.log(...)` at statement level)",
             line,
         )
 
-    if t in ("ArrayExpression", "ObjectExpression"):
-        raise ParserError("arrays / objects are not supported", line)
+    if t == "ArrayExpression":
+        return {
+            "kind": "array_literal",
+            "elements": [_expr(e, ctx) for e in node.elements],
+            "line": line,
+        }
+
+    if t == "ObjectExpression":
+        raise ParserError("objects are not supported", line)
 
     if t in ("ArrowFunctionExpression", "FunctionExpression"):
         raise ParserError("functions are not supported yet", line)
 
     if t == "MemberExpression":
-        raise ParserError("member access is not supported", line)
+        # `arr[i]` (computed) → index; `arr.length` → length
+        if getattr(node, "computed", False):
+            return {
+                "kind": "index",
+                "target": _expr(node.object, ctx),
+                "index": _expr(node.property, ctx),
+                "line": line,
+            }
+        if (
+            node.property.type == "Identifier"
+            and node.property.name == "length"
+            and node.object.type == "Identifier"
+        ):
+            return {
+                "kind": "length",
+                "target": {"kind": "var", "name": node.object.name, "line": line},
+                "line": line,
+            }
+        raise ParserError("member access is not supported (only `arr[i]` and `arr.length`)", line)
 
     if t == "TemplateLiteral":
         raise ParserError("template literals (backticks) are not supported", line)
@@ -232,6 +258,8 @@ def _var_decl(node: Any, ctx: _Ctx, line: int) -> Dict[str, Any]:
 def _infer_type(init_node: Any) -> str:
     if init_node is None:
         return "int"
+    if init_node.type == "ArrayExpression":
+        return "int[]"
     if init_node.type == "Literal":
         v = init_node.value
         if isinstance(v, bool):
@@ -281,6 +309,19 @@ def _handle_call(call: Any, ctx: _Ctx, line: int) -> Dict[str, Any]:
 
 
 def _handle_assignment(node: Any, ctx: _Ctx, line: int) -> Dict[str, Any]:
+    if node.left.type == "MemberExpression" and getattr(node.left, "computed", False):
+        return {
+            "kind": "assign_index",
+            "op": node.operator,
+            "target": {
+                "kind": "index",
+                "target": _expr(node.left.object, ctx),
+                "index": _expr(node.left.property, ctx),
+                "line": line,
+            },
+            "value": _expr(node.right, ctx),
+            "line": line,
+        }
     if node.left.type != "Identifier":
         raise ParserError("assignment target must be a variable name", line)
     name = node.left.name

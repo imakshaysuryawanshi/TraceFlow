@@ -107,6 +107,16 @@ def _expr(node: Any, ctx: "_Ctx") -> Dict[str, Any]:
         return _literal(node, line)
 
     if isinstance(node, jt.MemberReference):
+        # `a.length` — array length access.
+        if node.member == "length" and node.qualifier and not node.selectors:
+            qual = node.qualifier
+            if "." in qual:
+                raise ParserError(
+                    f"qualified reference '{qual}.{node.member}' is not supported",
+                    line,
+                )
+            return {"kind": "length", "target": {"kind": "var", "name": qual, "line": line}, "line": line}
+
         # A bare identifier reference. `qualifier` is only set for `Foo.bar` —
         # we treat the qualifier chain as unsupported here (System.out.println
         # is handled at the statement level via MethodInvocation).
@@ -115,7 +125,47 @@ def _expr(node: Any, ctx: "_Ctx") -> Dict[str, Any]:
                 f"qualified reference '{node.qualifier}.{node.member}' is not supported",
                 line,
             )
+        # Array indexing: `arr[i]` (and chained `arr[i][j]`).
+        if node.selectors:
+            result: Dict[str, Any] = {"kind": "var", "name": node.member, "line": line}
+            for sel in node.selectors:
+                if not isinstance(sel, jt.ArraySelector):
+                    raise ParserError(
+                        f"unsupported selector {type(sel).__name__}",
+                        line,
+                    )
+                result = {
+                    "kind": "index",
+                    "target": result,
+                    "index": _expr(sel.index, ctx),
+                    "line": line,
+                }
+            return result
         return {"kind": "var", "name": node.member, "line": line}
+
+    if isinstance(node, jt.ArrayCreator):
+        # `new int[3]` / `new String[3]`
+        dims = getattr(node, "dimensions", None) or []
+        if len(dims) != 1:
+            raise ParserError(
+                "only single-dimension array creation (`new T[n]`) is supported", line
+            )
+        if getattr(node, "initializer", None) is not None:
+            raise ParserError("`new T[] { ... }` is not supported", line)
+        return {
+            "kind": "array_alloc",
+            "elem_type": _type_name(node.type, line).rstrip("[]") or "int",
+            "length": _expr(dims[0], ctx),
+            "line": line,
+        }
+
+    if isinstance(node, jt.ArrayInitializer):
+        # `{ 1, 2, 3 }`
+        return {
+            "kind": "array_literal",
+            "elements": [_expr(e, ctx) for e in (node.initializers or [])],
+            "line": line,
+        }
 
     if isinstance(node, jt.BinaryOperation):
         return {
@@ -190,7 +240,21 @@ def _handle_unary(node: Any, ctx: "_Ctx", line: int) -> Dict[str, Any]:
 
     # The rest of the node is a normal reference/literal
     if isinstance(node, jt.MemberReference):
-        operand = {"kind": "var", "name": node.member, "line": line}
+        if node.qualifier:
+            raise ParserError(
+                f"qualified reference '{node.qualifier}.{node.member}' is not supported",
+                line,
+            )
+        operand: Dict[str, Any] = {"kind": "var", "name": node.member, "line": line}
+        for sel in (node.selectors or []):
+            if not isinstance(sel, jt.ArraySelector):
+                raise ParserError(f"unsupported selector {type(sel).__name__}", line)
+            operand = {
+                "kind": "index",
+                "target": operand,
+                "index": _expr(sel.index, ctx),
+                "line": line,
+            }
     elif isinstance(node, jt.Literal):
         operand = _literal(node, line)
     else:
@@ -275,10 +339,11 @@ def _var_decl(node: jt.LocalVariableDeclaration, ctx: _Ctx, line: int) -> Dict[s
             line,
         )
     decl = node.declarators[0]
-    if getattr(decl, "dimensions", None):
-        raise ParserError("arrays are not supported", line)
-
     type_name = _type_name(node.type, line)
+    if getattr(decl, "dimensions", None):
+        if type_name.endswith("[]"):
+            raise ParserError("multi-dimensional arrays are not supported", line)
+        type_name += "[]"
     return {
         "kind": "var_decl",
         "type": type_name,
@@ -290,20 +355,24 @@ def _var_decl(node: jt.LocalVariableDeclaration, ctx: _Ctx, line: int) -> Dict[s
 
 def _type_name(t: Any, line: int) -> str:
     if isinstance(t, jt.BasicType):
-        if getattr(t, "dimensions", None):
-            raise ParserError("arrays are not supported", line)
         if t.name not in _BASIC_TYPES:
             raise ParserError(f"type '{t.name}' is not supported", line)
-        return t.name
-    if isinstance(t, jt.ReferenceType):
-        if getattr(t, "dimensions", None):
-            raise ParserError("arrays are not supported", line)
+        base = t.name
+    elif isinstance(t, jt.ReferenceType):
         if getattr(t, "arguments", None):
             raise ParserError("generic types are not supported", line)
         if t.name not in _REFERENCE_ALLOWED:
             raise ParserError(f"type '{t.name}' is not supported", line)
-        return t.name
-    raise ParserError(f"unsupported type: {type(t).__name__}", line)
+        base = t.name
+    else:
+        raise ParserError(f"unsupported type: {type(t).__name__}", line)
+
+    dims = getattr(t, "dimensions", None) or []
+    if len(dims) > 1:
+        raise ParserError("multi-dimensional arrays are not supported", line)
+    if dims:
+        return base + "[]"
+    return base
 
 
 def _statement_expression(node: jt.StatementExpression, ctx: _Ctx, line: int) -> Dict[str, Any]:
@@ -326,15 +395,23 @@ def _statement_expression(node: jt.StatementExpression, ctx: _Ctx, line: int) ->
     # ------- assignment (statement-level) -------
     if isinstance(inner, jt.Assignment):
         target = _expr(inner.expressionl, ctx)
-        if target["kind"] != "var":
-            raise ParserError("assignment target must be a variable", line)
-        return {
-            "kind": "assign",
-            "op": inner.type,  # '=', '+=', '-=', '*=', '/=', '%='
-            "name": target["name"],
-            "value": _expr(inner.value, ctx),
-            "line": line,
-        }
+        if target["kind"] == "var":
+            return {
+                "kind": "assign",
+                "op": inner.type,  # '=', '+=', '-=', '*=', '/=', '%='
+                "name": target["name"],
+                "value": _expr(inner.value, ctx),
+                "line": line,
+            }
+        if target["kind"] == "index":
+            return {
+                "kind": "assign_index",
+                "op": inner.type,
+                "target": target,
+                "value": _expr(inner.value, ctx),
+                "line": line,
+            }
+        raise ParserError("assignment target must be a variable or array element", line)
 
     # ------- lone ++ / -- statement -------
     if isinstance(inner, jt.MemberReference) and (
@@ -422,15 +499,23 @@ def _for_update_expr(node: Any, ctx: _Ctx, line: int) -> Dict[str, Any]:
     """Update expression is stored as a bare expression (not a Statement)."""
     if isinstance(node, jt.Assignment):
         target = _expr(node.expressionl, ctx)
-        if target["kind"] != "var":
-            raise ParserError("update assignment target must be a variable", line)
-        return {
-            "kind": "assign",
-            "op": node.type,
-            "name": target["name"],
-            "value": _expr(node.value, ctx),
-            "line": line,
-        }
+        if target["kind"] == "var":
+            return {
+                "kind": "assign",
+                "op": node.type,
+                "name": target["name"],
+                "value": _expr(node.value, ctx),
+                "line": line,
+            }
+        if target["kind"] == "index":
+            return {
+                "kind": "assign_index",
+                "op": node.type,
+                "target": target,
+                "value": _expr(node.value, ctx),
+                "line": line,
+            }
+        raise ParserError("update assignment target must be a variable or array element", line)
     # e.g. i++
     if isinstance(node, jt.MemberReference) and (
         getattr(node, "prefix_operators", None) or getattr(node, "postfix_operators", None)

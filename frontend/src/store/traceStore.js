@@ -36,6 +36,46 @@ const SAMPLE_CODES = {
     javascript:
       "let n = 3;\nwhile (n > 0) {\n    console.log(n);\n    n--;\n}",
   },
+  "nested-loops-table": {
+    java:
+      "int total = 0;\nfor (int i = 1; i <= 3; i++) {\n    for (int j = 1; j <= 3; j++) {\n        total += i * j;\n    }\n}\nSystem.out.println(total);",
+    python:
+      "total = 0\nfor i in range(1, 4):\n    for j in range(1, 4):\n        total += i * j\nprint(total)",
+    javascript:
+      "let total = 0;\nfor (let i = 1; i <= 3; i++) {\n    for (let j = 1; j <= 3; j++) {\n        total += i * j;\n    }\n}\nconsole.log(total);",
+  },
+  "max-scan": {
+    java:
+      "int best = 0;\nfor (int i = 1; i <= 5; i++) {\n    if (i > best) {\n        best = i;\n    }\n}\nSystem.out.println(best);",
+    python:
+      "best = 0\nfor i in range(1, 6):\n    if i > best:\n        best = i\nprint(best)",
+    javascript:
+      "let best = 0;\nfor (let i = 1; i <= 5; i++) {\n    if (i > best) {\n        best = i;\n    }\n}\nconsole.log(best);",
+  },
+  "flag-toggle": {
+    java:
+      "boolean flag = false;\nint on = 0;\nfor (int i = 0; i < 4; i++) {\n    flag = !flag;\n    if (flag) {\n        on++;\n    }\n}\nSystem.out.println(on);",
+    python:
+      "flag = False\non = 0\nfor i in range(0, 4):\n    flag = not flag\n    if flag:\n        on += 1\nprint(on)",
+    javascript:
+      "let flag = false;\nlet on = 0;\nfor (let i = 0; i < 4; i++) {\n    flag = !flag;\n    if (flag) {\n        on++;\n    }\n}\nconsole.log(on);",
+  },
+  "string-accum": {
+    java:
+      'String s = "";\nfor (int i = 1; i <= 3; i++) {\n    s = s + "*";\n}\nSystem.out.println(s);',
+    python:
+      's = ""\nfor i in range(1, 4):\n    s = s + "*"\nprint(s)',
+    javascript:
+      'let s = "";\nfor (let i = 1; i <= 3; i++) {\n    s = s + "*";\n}\nconsole.log(s);',
+  },
+  "array-sum": {
+    java:
+      "int[] b = {1, 2, 3};\nint sum = 0;\nfor (int i = 0; i < b.length; i++) {\n    sum += b[i];\n}\nSystem.out.println(sum);",
+    python:
+      "b = [1, 2, 3]\nsum = 0\nfor i in range(0, len(b)):\n    sum += b[i]\nprint(sum)",
+    javascript:
+      "let b = [1, 2, 3];\nlet sum = 0;\nfor (let i = 0; i < b.length; i++) {\n    sum += b[i];\n}\nconsole.log(sum);",
+  },
 };
 
 
@@ -81,14 +121,84 @@ export const useTraceStore = create((set, get) => ({
   running: false,
   execError: null, // { message, line, stage } from /api/execute failures
 
-  // AI explanation settings
-  aiProvider: "gemini",
+  // AI explanation settings — empty provider = AI OFF (no tokens consumed).
+  // Only set once the user explicitly picks a provider in the Settings modal.
+  aiProvider: "",
   aiModel: "",
   aiApiKey: "",
 
   // Dev tools
   inspectorOpen: false,
   stripExpanded: false,
+
+  // ---------- active breakpoints ----------
+  breakpoints: [],
+  breakpointHitMessage: "",
+  
+  addBreakpoint: (line, condition) => {
+    const { breakpoints } = get();
+    const newBp = {
+      id: Math.random().toString(36).substr(2, 9),
+      line: Number(line),
+      condition: condition.trim(),
+      enabled: true
+    };
+    set({ breakpoints: [...breakpoints, newBp], breakpointHitMessage: "" });
+  },
+  removeBreakpoint: (id) => {
+    const { breakpoints } = get();
+    set({ breakpoints: breakpoints.filter(b => b.id !== id) });
+  },
+  toggleBreakpoint: (id) => {
+    const { breakpoints } = get();
+    set({
+      breakpoints: breakpoints.map(b => b.id === id ? { ...b, enabled: !b.enabled } : b)
+    });
+  },
+  clearBreakpointMessage: () => set({ breakpointHitMessage: "" }),
+
+  // ---------- save + compare runs ----------
+  savedRun: null,
+  compareModeEnabled: false,
+  
+  saveCurrentRun: () => {
+    const { trace } = get();
+    if (!trace) return;
+    set({ savedRun: JSON.parse(JSON.stringify(trace)) });
+  },
+  clearSavedRun: () => set({ savedRun: null, compareModeEnabled: false }),
+  toggleCompareMode: () => set(s => ({ compareModeEnabled: !s.compareModeEnabled })),
+
+  // ---------- active practice mode ----------
+  practiceModeEnabled: false,
+  activeQuiz: null,
+  selectedAnswer: "",
+  quizSubmitted: false,
+  quizAnsweredCorrectly: false,
+
+  togglePracticeMode: () => {
+    const { practiceModeEnabled, trace, currentStep } = get();
+    const nextVal = !practiceModeEnabled;
+    set({
+      practiceModeEnabled: nextVal,
+      activeQuiz: nextVal ? _generateQuiz(trace, currentStep) : null,
+      selectedAnswer: "",
+      quizSubmitted: false,
+      quizAnsweredCorrectly: false,
+    });
+  },
+
+  selectQuizAnswer: (ans) => set({ selectedAnswer: ans }),
+
+  submitQuizAnswer: () => {
+    const { activeQuiz, selectedAnswer } = get();
+    if (!activeQuiz) return;
+    const isCorrect = selectedAnswer === activeQuiz.correctAnswer;
+    set({
+      quizSubmitted: true,
+      quizAnsweredCorrectly: isCorrect,
+    });
+  },
 
   // ---------- catalog ----------
   loadSamples: async () => {
@@ -129,6 +239,10 @@ export const useTraceStore = create((set, get) => ({
         currentStep: 0,
         traceLoading: false,
         execError: null,
+        activeQuiz: get().practiceModeEnabled ? _generateQuiz({ ...data, code: canonicalForLang }, 0) : null,
+        quizAnsweredCorrectly: false,
+        selectedAnswer: "",
+        quizSubmitted: false,
       });
     } catch (e) {
       set({ error: "Failed to load trace", traceLoading: false });
@@ -209,7 +323,14 @@ export const useTraceStore = create((set, get) => ({
 
     const isDirty = !!state.trace && state.draftCode !== state.trace.code;
     if (!isDirty) {
-      set({ currentStep: 0, execError: null });
+      set({
+        currentStep: 0,
+        execError: null,
+        activeQuiz: state.practiceModeEnabled ? _generateQuiz(state.trace, 0) : null,
+        quizAnsweredCorrectly: false,
+        selectedAnswer: "",
+        quizSubmitted: false,
+      });
       return { ok: true };
     }
 
@@ -230,6 +351,10 @@ export const useTraceStore = create((set, get) => ({
         currentStep: 0,
         running: false,
         execError: null,
+        activeQuiz: state.practiceModeEnabled ? _generateQuiz(data, 0) : null,
+        quizAnsweredCorrectly: false,
+        selectedAnswer: "",
+        quizSubmitted: false,
       });
       return { ok: true, trace: data };
     } catch (e) {
@@ -253,43 +378,109 @@ export const useTraceStore = create((set, get) => ({
 
   // ---------- playback ----------
   next: () => {
-    const { trace, currentStep, isPlaying } = get();
+    const { trace, currentStep, isPlaying, practiceModeEnabled, activeQuiz, quizAnsweredCorrectly } = get();
     if (!trace) return;
+    if (practiceModeEnabled && activeQuiz && !quizAnsweredCorrectly) return;
     if (isPlaying) get().pause();
-    if (currentStep < trace.steps.length - 1) {
-      set({ currentStep: currentStep + 1 });
+    const steps = trace.trace || trace.steps;
+    if (currentStep < steps.length - 1) {
+      const nextIdx = currentStep + 1;
+      set({
+        currentStep: nextIdx,
+        activeQuiz: practiceModeEnabled ? _generateQuiz(trace, nextIdx) : null,
+        quizAnsweredCorrectly: false,
+        selectedAnswer: "",
+        quizSubmitted: false,
+      });
     }
   },
   prev: () => {
-    const { currentStep, isPlaying } = get();
+    const { currentStep, isPlaying, trace, practiceModeEnabled } = get();
     if (isPlaying) get().pause();
-    if (currentStep > 0) set({ currentStep: currentStep - 1 });
+    if (currentStep > 0) {
+      const prevIdx = currentStep - 1;
+      set({
+        currentStep: prevIdx,
+        activeQuiz: practiceModeEnabled ? _generateQuiz(trace, prevIdx) : null,
+        quizAnsweredCorrectly: false,
+        selectedAnswer: "",
+        quizSubmitted: false,
+      });
+    }
   },
   goTo: (idx) => {
-    const { trace } = get();
+    const { trace, practiceModeEnabled } = get();
     if (!trace) return;
-    const clamped = Math.max(0, Math.min(idx, trace.steps.length - 1));
-    set({ currentStep: clamped });
+    const steps = trace.trace || trace.steps;
+    const clamped = Math.max(0, Math.min(idx, steps.length - 1));
+    set({
+      currentStep: clamped,
+      activeQuiz: practiceModeEnabled ? _generateQuiz(trace, clamped) : null,
+      quizAnsweredCorrectly: false,
+      selectedAnswer: "",
+      quizSubmitted: false,
+    });
   },
   replay: () => {
+    const { trace, practiceModeEnabled } = get();
     get().pause();
-    set({ currentStep: 0 });
+    set({
+      currentStep: 0,
+      activeQuiz: practiceModeEnabled ? _generateQuiz(trace, 0) : null,
+      quizAnsweredCorrectly: false,
+      selectedAnswer: "",
+      quizSubmitted: false,
+    });
   },
   play: () => {
-    const { _timer, isPlaying, trace, playbackSpeedMs, currentStep } = get();
-    if (isPlaying || !trace) return;
-    // If at end, restart from beginning for a fresh play-through.
-    if (currentStep >= trace.steps.length - 1) set({ currentStep: 0 });
+    const { _timer, isPlaying, trace, playbackSpeedMs, currentStep, practiceModeEnabled } = get();
+    if (isPlaying || !trace || practiceModeEnabled) return;
+    const steps = trace.trace || trace.steps;
+    if (currentStep >= steps.length - 1) set({ currentStep: 0 });
     if (_timer) clearInterval(_timer);
     const timer = setInterval(() => {
       const s = get();
-      if (!s.trace || s.currentStep >= s.trace.steps.length - 1) {
+      if (!s.trace) {
         s.pause();
         return;
       }
-      set({ currentStep: s.currentStep + 1 });
+      const sSteps = s.trace.trace || s.trace.steps;
+      if (!sSteps || s.currentStep >= sSteps.length - 1) {
+        s.pause();
+        return;
+      }
+      const nextIdx = s.currentStep + 1;
+      const nextStep = sSteps[nextIdx];
+      
+      // Check breakpoints
+      let hitBp = null;
+      const nextStepVars = nextStep.state?.variables || nextStep.variables || {};
+      for (const bp of s.breakpoints) {
+        if (bp.enabled && nextStep.line === bp.line) {
+          if (bp.condition) {
+            if (_evalBreakpointCondition(bp.condition, nextStepVars)) {
+              hitBp = bp;
+              break;
+            }
+          } else {
+            hitBp = bp;
+            break;
+          }
+        }
+      }
+
+      if (hitBp) {
+        s.pause();
+        set({
+          currentStep: nextIdx,
+          breakpointHitMessage: `Breakpoint hit at line ${hitBp.line}${hitBp.condition ? ` when (${hitBp.condition})` : ""}`
+        });
+        return;
+      }
+
+      set({ currentStep: nextIdx });
     }, playbackSpeedMs);
-    set({ _timer: timer, isPlaying: true });
+    set({ _timer: timer, isPlaying: true, breakpointHitMessage: "" });
   },
   pause: () => {
     const { _timer } = get();
@@ -308,7 +499,7 @@ export const useTraceStore = create((set, get) => ({
   // ---------- AI settings ----------
   setAiSettings: (settings) => {
     set({
-      aiProvider: settings.aiProvider ?? "gemini",
+      aiProvider: settings.aiProvider ?? "",
       aiModel: settings.aiModel ?? "",
       aiApiKey: settings.aiApiKey ?? "",
     });
@@ -328,19 +519,150 @@ if (savedAi) {
 }
 
 // ---------- derived selectors (pure helpers) ----------
-export const selectCurrentStep = (state) =>
-  state.trace ? state.trace.steps[state.currentStep] : null;
+export const selectCurrentStep = (state) => {
+  const steps = state.trace ? (state.trace.trace || state.trace.steps) : null;
+  return steps ? steps[state.currentStep] : null;
+};
 
-export const selectPrevStep = (state) =>
-  state.trace && state.currentStep > 0
-    ? state.trace.steps[state.currentStep - 1]
+export const selectPrevStep = (state) => {
+  const steps = state.trace ? (state.trace.trace || state.trace.steps) : null;
+  return steps && state.currentStep > 0
+    ? steps[state.currentStep - 1]
     : null;
+};
 
 export const selectProgress = (state) => {
   if (!state.trace) return 0;
-  return ((state.currentStep + 1) / state.trace.steps.length) * 100;
+  const steps = state.trace.trace || state.trace.steps;
+  return ((state.currentStep + 1) / steps.length) * 100;
 };
 
 /** Whether draftCode diverges from the loaded sample's original source. */
 export const selectCodeDirty = (state) =>
   !!state.trace && state.draftCode !== state.trace.code;
+
+/**
+ * Dynamically generates a multiple-choice practice question predicting the next step.
+ */
+function _generateQuiz(trace, currentStepIdx) {
+  if (!trace) return null;
+  const steps = trace.trace || trace.steps;
+  if (!steps || currentStepIdx >= steps.length - 1) return null;
+  const curr = steps[currentStepIdx];
+  const next = steps[currentStepIdx + 1];
+
+  // 1. Check if variables changed
+  const changedVars = [];
+  const currVars = curr.state?.variables || curr.variables || {};
+  const nextVars = next.state?.variables || next.variables || {};
+  
+  for (const k of Object.keys(nextVars)) {
+    if (currVars[k] !== nextVars[k]) {
+      changedVars.push({ name: k, oldVal: currVars[k], newVal: nextVars[k] });
+    }
+  }
+
+  if (changedVars.length > 0) {
+    const target = changedVars[0];
+    const question = `At the next step (line ${next.line}), what will be the value of variable '${target.name}'?`;
+    const correctVal = String(target.newVal);
+    const oldVal = String(target.oldVal);
+    const optionsSet = new Set([correctVal, oldVal]);
+    
+    try {
+      const num = Number(target.newVal);
+      if (!isNaN(num)) {
+        optionsSet.add(String(num + 1));
+        optionsSet.add(String(num * 2));
+        optionsSet.add("0");
+      } else if (typeof target.newVal === "boolean") {
+        optionsSet.add(String(!target.newVal));
+      } else {
+        optionsSet.add(correctVal + "_updated");
+        optionsSet.add("null");
+      }
+    } catch (e) {
+      optionsSet.add("undefined");
+    }
+    
+    while (optionsSet.size < 4) {
+      optionsSet.add(String(Math.floor(Math.random() * 10)));
+    }
+    
+    const options = Array.from(optionsSet);
+    options.sort(() => Math.random() - 0.5);
+
+    return {
+      type: "variable",
+      question,
+      options,
+      correctAnswer: correctVal,
+      hint: `Currently, '${target.name}' is ${oldVal}. Look closely at the statement at line ${next.line} to see how it updates.`
+    };
+  }
+
+  // 2. Print prediction — what value will be output next
+  if (next.kind === "print") {
+    const outputSoFar = curr.output || [];
+    const knownOutput = outputSoFar[outputSoFar.length - 1];
+    const optionsSet = new Set();
+    if (knownOutput !== undefined) optionsSet.add(String(knownOutput));
+    if (currVars && Object.keys(currVars).length > 0) {
+      for (const v of Object.values(currVars)) {
+        optionsSet.add(String(v));
+      }
+    }
+    optionsSet.add("undefined");
+    optionsSet.add("null");
+    while (optionsSet.size < 4) {
+      optionsSet.add(String(Math.floor(Math.random() * 10)));
+    }
+    return {
+      type: "print",
+      question: `The next statement (line ${next.line}) prints something to the console. What value will it output?`,
+      options: Array.from(optionsSet)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4),
+      correctAnswer: String((next.output || [])[0]),
+      hint: `Current variables are: ${JSON.stringify(currVars)}. Determine what the print statement evaluates to.`
+    };
+  }
+
+  // 3. If it's a loop or conditional check
+  if (next.kind === "condition" && next.condition) {
+    return {
+      type: "condition",
+      question: `The next statement checks the condition '${next.condition}'. What will it evaluate to?`,
+      options: ["true", "false"],
+      correctAnswer: String(next.condition_result),
+      hint: `Evaluate the boolean expression '${next.condition}' using current variables: ${JSON.stringify(currVars)}.`
+    };
+  }
+
+  // 4. Line execution prediction
+  return {
+    type: "line",
+    question: `What line will execute next after line ${curr.line}?`,
+    options: Array.from(new Set([String(next.line), String(curr.line + 1), String(curr.line + 2)])).sort(() => Math.random() - 0.5),
+    correctAnswer: String(next.line),
+    hint: `Look at the program structure (conditions or loop updates) to see which statement executes next.`
+  };
+}
+
+/**
+ * Evaluates a conditional breakpoint expression using the variable values.
+ */
+function _evalBreakpointCondition(cond, vars) {
+  if (!cond) return true;
+  let evalStr = cond;
+  for (const [k, v] of Object.entries(vars)) {
+    const valStr = typeof v === "string" ? `"${v}"` : String(v);
+    evalStr = evalStr.replace(new RegExp(`\\b${k}\\b`, "g"), valStr);
+  }
+  try {
+    return Function(`"use strict"; return (${evalStr})`)();
+  } catch (e) {
+    return false;
+  }
+}
+

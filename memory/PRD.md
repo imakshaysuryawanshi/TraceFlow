@@ -46,27 +46,28 @@ A learning tool that visualizes step-by-step Java execution so beginners can see
   - AI Explanation panel: mock explanation per step + Focus + Concept card; marked "mock" for Phase 9 swap.
 - 3 sample programs: `for-loop-sum` (13 steps), `if-else-grade` (3 steps), `while-countdown` (11 steps).
 - 100% E2E pass (11 backend pytest + 16 Playwright flows) — see `/app/test_reports/iteration_1.json`.
+- **Phase 8 — Resizable panels** (2026-02): three-panel workspace is draggable via `react-resizable-panels` in `App.jsx`; split ratios persist to `localStorage['traceflow.layout']`.
+- **Phase 9 — Multi-language selector** (2026-02): TopBar language dropdown (Java / Python / JavaScript) wired to `setLanguage`; per-language canonical starter code for each sample, persisted language preference, dynamic Monaco syntax highlighting. Backend parses all three languages via `parser/` dispatch.
+- **Phase 10 — Dynamic LLM explanations** (2026-02): `backend/ai/explanation.py` dispatches to Gemini / Groq / OpenRouter / OpenAI over async HTTP, replaces `step.explanation` inline on `/api/execute` when a provider + key is configured (non-blocking; templated explanations remain the fallback). Responses cached by (provider, model, code, step-lines) hash. Frontend settings modal persists provider/model/key.
+- **API test runner** (2026-02): `backend/tests/test_traces_api.py` resolves the backend URL from `frontend/.env` relative to the repo (works on any OS).
 
 ## Prioritized Backlog
 ### P0 (next up)
-- **Phase 5** — Java parser (subset: vars, arithmetic, if/else, for/while, print, basic methods).
-- **Phase 6** — Trace generator (produces the same JSON schema currently served from mock).
+- None — all planned phases (1–10) are implemented. See "Nice-to-have polish" below.
 
 ### P1
-- **Phase 7** — Variable tracking hooked to real trace.
-- **Phase 8** — Output tracking hooked to real trace.
-- Editable Monaco + a "Run trace" button that POSTs code and receives the generated trace.
+- Layout / resizing polish (already shipped — Phase 8).
+- Multi-language selector (already shipped — Phase 9).
 
 ### P2
-- **Phase 9** — AI explanation via LLM (Emergent LLM key, Claude Sonnet). Drop-in replacement for `step.explanation`.
-- Resizable panels (react-resizable-panels already installed).
-- Persistent user code snippets (only if requested).
+- **Database integration (deferred / future)**: persistent store (e.g., MongoDB) for user accounts, progress tracking, cloud-saved snippets, shareable trace URLs, and usage analytics. Nothing else currently needs a DB.
+- Resizable panels polish (react-resizable-panels already installed and wired).
 
 ## Nice-to-have polish (from code review)
-- Cache `mock_traces.json` load (module-level or `lru_cache`).
-- Lazy-init Mongo client (unused in Phase 1-4).
-- Auto-reset on Play when at end of trace.
-- Pause on manual next/prev while playing.
+- Cache `mock_traces.json` load (module-level or `lru_cache`) — **DONE** (`functools.lru_cache` in `server.py`).
+- Lazy-init Mongo client (unused in Phase 1-4) — N/A, DB integration deferred.
+- Auto-reset on Play when at end of trace — **DONE** in `traceStore.play()`.
+- Pause on manual next/prev while playing — **DONE** in `traceStore.next()/prev()`.
 
 ## Files (key)
 - Backend: `/app/backend/server.py`, `/app/backend/mock_traces.json`

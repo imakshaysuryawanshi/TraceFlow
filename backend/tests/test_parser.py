@@ -206,3 +206,45 @@ class Main {
     # And they should match the wrapped source's user-facing lines (3, 4)
     assert ast_wrapped["statements"][0]["line"] == 3
     assert ast_wrapped["statements"][1]["line"] == 4
+
+
+def test_wrapped_class_with_leading_comment_is_not_double_wrapped():
+    """A fully-wrapped class that starts with a comment must not be wrapped
+    again (which would break line offsets and parse errors)."""
+    src = """\
+// TraceFlow sample: countdown
+class Main {
+  public static void main(String[] args) {
+    int n = 3;
+    System.out.println(n);
+  }
+}
+"""
+    ast = parse(src)
+    assert ast["statements"][0]["line"] == 4
+    assert ast["statements"][1]["line"] == 5
+
+
+def test_javascript_block_scoped_for_counters_may_redeclare():
+    """`let i` inside a for-init is block-scoped; two sequential loops using
+    the same counter name are legal JS."""
+    src = """\
+let total = 0;
+for (let i = 1; i <= 3; i++) {
+    total += i;
+}
+for (let i = 1; i <= 2; i++) {
+    total += i;
+}
+"""
+    ast = parse(src, "javascript")
+    kinds = [s["kind"] for s in ast["statements"]]
+    assert kinds.count("for") == 2
+
+
+def test_python_range_for_stop_is_not_rebound_in_body():
+    """Python's range() is constructed once; mutating the stop variable
+    inside the body must not extend the loop."""
+    ast = parse("n = 3\nfor i in range(0, n):\n    n += 1\n    pass", "python")
+    for_node = next(s for s in ast["statements"] if s["kind"] == "for")
+    assert for_node.get("range_semantics") is True

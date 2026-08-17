@@ -31,6 +31,8 @@ export default function StepsStrip() {
 
   if (!trace || !expanded) return null;
 
+  const steps = trace.trace || trace.steps || [];
+
   return (
     <div
       data-testid={TF.stepsStrip}
@@ -40,7 +42,7 @@ export default function StepsStrip() {
         ref={scrollRef}
         className="flex items-stretch gap-1.5 px-3 py-2.5 overflow-x-auto"
       >
-        {trace.steps.map((s, i) => (
+        {steps.map((s, i) => (
           <StripChip
             key={i}
             step={s}

@@ -38,18 +38,22 @@ export default function SettingsModal({ open, onOpenChange }) {
   const aiModel = useTraceStore((s) => s.aiModel);
   const aiApiKey = useTraceStore((s) => s.aiApiKey);
   const setAiSettings = useTraceStore((s) => s.setAiSettings);
+  const userRole = useTraceStore((s) => s.userRole);
+  const setUserRole = useTraceStore((s) => s.setUserRole);
 
   const [provider, setProvider] = useState(aiProvider);
   const [model, setModel] = useState(aiModel);
   const [apiKey, setApiKey] = useState(aiApiKey);
+  const [role, setRole] = useState(userRole);
 
   useEffect(() => {
     if (open) {
       setProvider(aiProvider || "off");
       setModel(aiModel);
       setApiKey(aiApiKey);
+      setRole(userRole);
     }
-  }, [open, aiProvider, aiModel, aiApiKey]);
+  }, [open, aiProvider, aiModel, aiApiKey, userRole]);
 
   const handleProviderChange = (val) => {
     setProvider(val);
@@ -68,6 +72,7 @@ export default function SettingsModal({ open, onOpenChange }) {
       aiModel: provider === "off" ? "" : model,
       aiApiKey: provider === "off" ? "" : apiKey,
     });
+    setUserRole(role);
     onOpenChange(false);
   };
 
@@ -77,15 +82,34 @@ export default function SettingsModal({ open, onOpenChange }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Settings className="w-4 h-4 text-[hsl(var(--tf-accent))]" />
-            AI Settings
+            AI & User Settings
           </DialogTitle>
           <DialogDescription className="text-[12.5px] text-[hsl(var(--tf-text-muted))]">
-            Configure your preferred LLM provider, model, and API key. Your key
-            is stored locally in your browser and never sent to our servers.
+            Configure your target learning path and preferred LLM settings.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* User Role */}
+          <div className="space-y-1.5">
+            <Label className="text-[12px] text-[hsl(var(--tf-text-dim))] uppercase tracking-wider">
+              Interview Track Profile
+            </Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="bg-[hsl(var(--tf-panel-2))] border-[hsl(var(--tf-border-strong))] text-sm h-9">
+                <SelectValue placeholder="Select your learning profile" />
+              </SelectTrigger>
+              <SelectContent className="bg-[hsl(var(--tf-panel-2))] border-[hsl(var(--tf-border-strong))] text-[hsl(var(--tf-text))]">
+                <SelectItem value="student_fresher">
+                  Foundation (Student / Fresher)
+                </SelectItem>
+                <SelectItem value="experienced_pro">
+                  Advanced (Experienced Pro / Working)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Provider */}
           <div className="space-y-1.5">
             <Label className="text-[12px] text-[hsl(var(--tf-text-dim))] uppercase tracking-wider">

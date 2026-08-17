@@ -18,6 +18,8 @@ import hashlib
 import json
 import logging
 import os
+import threading
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -92,8 +94,34 @@ def _cache_key(provider: str, model: str, code: str, steps: List[Dict]) -> str:
     raw = f"{provider}:{model}:{code}:{json.dumps([s['line'] for s in steps], sort_keys=True)}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
-# In-memory cache: key -> list[str] explanations
-_explanation_cache: Dict[str, List[str]] = {}
+class _BoundedCache:
+    """Thread-safe LRU dict that caps its entry count."""
+
+    def __init__(self, maxsize: int = 256) -> None:
+        self.maxsize = maxsize
+        self._data: "OrderedDict[str, List[str]]" = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> Optional[List[str]]:
+        with self._lock:
+            val = self._data.get(key)
+            if val is not None:
+                self._data.move_to_end(key)
+            return val
+
+    def put(self, key: str, value: List[str]) -> None:
+        with self._lock:
+            if key in self._data:
+                self._data.move_to_end(key)
+            self._data[key] = value
+            while len(self._data) > self.maxsize:
+                self._data.popitem(last=False)
+
+
+# In-memory LRU cache: key -> list[str] explanations. Bounded so an
+# unbounded number of distinct (provider, model, code, steps) traces can't
+# grow process memory without limit.
+_explanation_cache = _BoundedCache(maxsize=256)
 
 # ---------------------------------------------------------------------------
 # Provider implementations
@@ -104,11 +132,11 @@ async def _call_gemini(
     session: aiohttp.ClientSession,
     model: str,
     api_key: str,
-    prompt: str,
-) -> Optional[List[str]]:
+    contents: List[Dict[str, Any]],
+) -> Optional[str]:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": contents,
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
     }
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
@@ -123,8 +151,8 @@ async def _call_gemini(
             if not candidates:
                 return None
             raw = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-            return _parse_json_list(raw)
-    except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
+            return raw
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.warning("Gemini call failed: %s", e)
         return None
 
@@ -134,15 +162,12 @@ async def _call_openai_compat(
     base_url: str,
     model: str,
     api_key: str,
-    prompt: str,
-) -> Optional[List[str]]:
+    messages: List[Dict[str, Any]],
+) -> Optional[str]:
     url = f"{base_url}/v1/chat/completions"
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
+        "messages": messages,
         "temperature": 0.3,
         "max_tokens": 2048,
     }
@@ -158,8 +183,8 @@ async def _call_openai_compat(
                 return None
             body = await resp.json()
             raw = body.get("choices", [{}])[0].get("message", {}).get("content", "")
-            return _parse_json_list(raw)
-    except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
+            return raw
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.warning("OpenAI-compat call failed: %s", e)
         return None
 
@@ -227,34 +252,80 @@ async def explain_steps(
     # Concurrency gate
     sem = semaphore or asyncio.Semaphore(5)
 
+    # Prepare message history for Ralphloop retries
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
+    contents = [
+        {"role": "user", "parts": [{"text": f"{SYSTEM_PROMPT}\n\n{prompt}"}]}
+    ]
+
+    max_attempts = 3
     explanations: Optional[List[str]] = None
+
     async with sem:
         async with aiohttp.ClientSession() as session:
-            if provider == "gemini":
-                explanations = await _call_gemini(session, model, resolved_key, prompt)
-            elif provider in ("groq", "openrouter", "openai"):
-                base = OPENAI_BASES.get(provider)
-                if base:
-                    explanations = await _call_openai_compat(session, base, model, resolved_key, prompt)
-            else:
-                logger.warning("Unknown provider '%s'", provider)
+            for attempt in range(1, max_attempts + 1):
+                logger.info("Explain steps (Ralphloop): Attempt %d of %d for provider=%s", attempt, max_attempts, provider)
+                
+                raw: Optional[str] = None
+                if provider == "gemini":
+                    raw = await _call_gemini(session, model, resolved_key, contents)
+                elif provider in ("groq", "openrouter", "openai"):
+                    base = OPENAI_BASES.get(provider)
+                    if base:
+                        raw = await _call_openai_compat(session, base, model, resolved_key, messages)
+                else:
+                    logger.warning("Unknown provider '%s'", provider)
+                    break
+
+                if raw is None:
+                    logger.warning("API returned no response on attempt %d", attempt)
+                    await asyncio.sleep(1)
+                    continue
+
+                parsed_list = _parse_json_list(raw)
+                if parsed_list is not None and len(parsed_list) == len(steps):
+                    explanations = parsed_list
+                    break
+
+                # Validation failed
+                if parsed_list is None:
+                    error_msg = "Failed to parse JSON. Output was not a valid JSON array of strings."
+                else:
+                    error_msg = f"Validation failed. Expected exactly {len(steps)} explanations, but got {len(parsed_list)}."
+
+                logger.warning("Attempt %d validation failure: %s. Retrying...", attempt, error_msg)
+
+                # Append bad output and retry instructions to history
+                messages.append({"role": "assistant", "content": raw})
+                messages.append({
+                    "role": "user",
+                    "content": f"Your previous response was invalid.\nError: {error_msg}\n\nPlease output EXACTLY one valid JSON array of {len(steps)} strings, preserving order. No formatting, no code fences, no extra text."
+                })
+
+                contents.append({"role": "model", "parts": [{"text": raw}]})
+                contents.append({
+                    "role": "user",
+                    "parts": [{"text": f"Your previous response was invalid.\nError: {error_msg}\n\nPlease output EXACTLY one valid JSON array of {len(steps)} strings, preserving order. No formatting, no code fences, no extra text."}]
+                })
 
     if explanations is not None and len(explanations) == len(steps):
         sanitized = _sanitize_explanations(explanations, steps)
-        _explanation_cache[ck] = sanitized
+        _explanation_cache.put(ck, sanitized)
         return sanitized
 
     if explanations is not None:
         logger.warning(
-            "Expected %d explanations, got %d — padding/truncating",
+            "Expected %d explanations, got %d after retries — padding/truncating",
             len(steps),
             len(explanations),
         )
-        # Pad or truncate to match step count
         result = explanations[: len(steps)]
         while len(result) < len(steps):
             result.append(_fallback([steps[len(result)]])[0])
-        _explanation_cache[ck] = result
+        _explanation_cache.put(ck, result)
         return result
 
     return _fallback(steps)

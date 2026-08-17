@@ -16,6 +16,9 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 
+import DryRunDrawer from "@/components/DryRun/DryRunDrawer";
+import InsightPanel from "@/components/Insight/InsightPanel";
+
 function App() {
   const loadSamples = useTraceStore((s) => s.loadSamples);
   const loadTrace = useTraceStore((s) => s.loadTrace);
@@ -25,6 +28,17 @@ function App() {
   const prev = useTraceStore((s) => s.prev);
   const toggleInspector = useTraceStore((s) => s.toggleInspector);
   const closeInspector = useTraceStore((s) => s.closeInspector);
+  const dryRunOpen = useTraceStore((s) => s.dryRunOpen);
+  const insightOpen = useTraceStore((s) => s.insightOpen);
+  const theme = useTraceStore((s) => s.theme);
+
+  useEffect(() => {
+    if (theme === "light") {
+      document.documentElement.classList.add("light");
+    } else {
+      document.documentElement.classList.remove("light");
+    }
+  }, [theme]);
 
   useEffect(() => {
     loadSamples();
@@ -80,6 +94,8 @@ function App() {
   }
 
   const onLayout = (sizes) => {
+    // Only persist if we aren't in dry run or insight mode to prevent overwrite of default layouts
+    if (dryRunOpen || insightOpen) return;
     try {
       localStorage.setItem(layoutKey, JSON.stringify(sizes));
     } catch (e) {
@@ -97,27 +113,49 @@ function App() {
         className="flex-1 bg-[hsl(var(--tf-border))]"
         onLayout={onLayout}
       >
-        <ResizablePanel defaultSize={defaultLayout[0]} minSize={20}>
+        <ResizablePanel defaultSize={(dryRunOpen || insightOpen) ? 55 : defaultLayout[0]} minSize={20}>
           <div className="h-full bg-[hsl(var(--tf-bg))]">
             <CodeEditor />
           </div>
         </ResizablePanel>
 
-        <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
+        {insightOpen ? (
+          <>
+            <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
+            <ResizablePanel defaultSize={45} minSize={20}>
+              <div className="h-full bg-[hsl(var(--tf-bg))]">
+                <InsightPanel />
+              </div>
+            </ResizablePanel>
+          </>
+        ) : dryRunOpen ? (
+          <>
+            <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
+            <ResizablePanel defaultSize={45} minSize={20}>
+              <div className="h-full bg-[hsl(var(--tf-bg))]">
+                <DryRunDrawer />
+              </div>
+            </ResizablePanel>
+          </>
+        ) : (
+          <>
+            <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
 
-        <ResizablePanel defaultSize={defaultLayout[1]} minSize={20}>
-          <div className="h-full bg-[hsl(var(--tf-bg))] tf-grid-bg">
-            <ExecutionPanel />
-          </div>
-        </ResizablePanel>
+            <ResizablePanel defaultSize={defaultLayout[1]} minSize={20}>
+              <div className="h-full bg-[hsl(var(--tf-bg))] tf-grid-bg">
+                <ExecutionPanel />
+              </div>
+            </ResizablePanel>
 
-        <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
+            <ResizableHandle className="w-[3px] bg-[hsl(var(--tf-border))] hover:bg-[hsl(var(--tf-accent))]/50 transition-colors data-[resize-handle-active]:bg-[hsl(var(--tf-accent))]/70" />
 
-        <ResizablePanel defaultSize={defaultLayout[2]} minSize={15}>
-          <div className="h-full bg-[hsl(var(--tf-bg))]">
-            <AIExplanation />
-          </div>
-        </ResizablePanel>
+            <ResizablePanel defaultSize={defaultLayout[2]} minSize={15}>
+              <div className="h-full bg-[hsl(var(--tf-bg))]">
+                <AIExplanation />
+              </div>
+            </ResizablePanel>
+          </>
+        )}
       </ResizablePanelGroup>
 
       {/* Timeline + Output console */}

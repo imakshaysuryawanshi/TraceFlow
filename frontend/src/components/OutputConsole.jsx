@@ -13,9 +13,10 @@ export default function OutputConsole() {
   const currentStepIdx = useTraceStore((s) => s.currentStep);
 
   const output = step?.output || [];
+  const steps = trace ? (trace.trace || trace.steps) : [];
   const prevOutput =
     trace && currentStepIdx > 0
-      ? trace.steps[currentStepIdx - 1]?.output || []
+      ? steps[currentStepIdx - 1]?.output || []
       : [];
   const newlyPrintedIndex = output.length > prevOutput.length ? output.length - 1 : -1;
 

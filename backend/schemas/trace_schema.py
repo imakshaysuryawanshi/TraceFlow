@@ -41,9 +41,13 @@ class Step(BaseModel):
         default_factory=list,
         description="Full print buffer as a list of strings AFTER this step",
     )
-    changes: List[str] = Field(
+    changes: List[Any] = Field(
         default_factory=list,
-        description="Human-readable list of what changed on this step (e.g. 'sum changed from 0 to 1')",
+        description=(
+            "What changed on this step. May contain plain strings "
+            "('sum changed from 0 to 1') OR structured dicts "
+            "({var, old, new, type} where type is init|update|delete|print|note)."
+        ),
     )
     explanation: str = Field(
         default="",

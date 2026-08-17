@@ -9,7 +9,8 @@ import { diffChangedVars, computeLoopContexts } from "@/schemas/traceSchema";
 import VariableCard from "@/components/VariableCard";
 import StepIndicator from "@/components/StepIndicator";
 import LoopIndicator from "@/components/LoopIndicator";
-import { Activity, GitCommit, Zap } from "lucide-react";
+import { Activity, GitCommit, Zap, Copy } from "lucide-react";
+import { toast } from "sonner";
 
 /**
  * CENTER panel — Execution Visualization.
@@ -46,6 +47,49 @@ export default function ExecutionPanel() {
   const varEntries = Object.entries(variables);
   const changedSet = diffChangedVars(step, prev);
   const stepsList = trace.trace || trace.steps || [];
+
+  const handleCopySteps = () => {
+    try {
+      const headers = ["Step", "Line", "Kind", "Statement", "Variables", "Output", "Explanation"];
+      const rows = stepsList.map((s, idx) => {
+        const stepNum = idx + 1;
+        const line = s.line;
+        const kind = s.kind || s.type || "step";
+        const statement = s.label || (s.changes && s.changes[0]) || "";
+        const vars = s.state?.variables || s.variables || {};
+        const variablesStr = Object.entries(vars)
+          .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+          .join(", ");
+        const outputStr = (s.output || []).join(" | ");
+        const explanation = s.explanation || "";
+        
+        return [
+          stepNum,
+          line,
+          kind,
+          statement,
+          variablesStr,
+          outputStr,
+          explanation
+        ].map(val => {
+          return String(val).replace(/\r?\n|\r/g, " ").replace(/\t/g, " ");
+        });
+      });
+
+      const tsvContent = [
+        headers.join("\t"),
+        ...rows.map(row => row.join("\t"))
+      ].join("\n");
+
+      navigator.clipboard.writeText(tsvContent);
+      toast.success("Steps copied to clipboard!", {
+        description: "Paste directly into Excel or Google Sheets.",
+        duration: 3000,
+      });
+    } catch (err) {
+      toast.error("Failed to copy steps.");
+    }
+  };
   
   const currentLoop = (step.control && step.control.iteration !== null && step.control.iteration !== undefined) ? {
     iteration: step.control.iteration,
@@ -97,6 +141,15 @@ export default function ExecutionPanel() {
               {compareModeEnabled ? "Comparing Active" : "Compare"}
             </button>
           )}
+
+          <button
+            onClick={handleCopySteps}
+            className="px-2 py-0.5 rounded text-[9.5px] uppercase font-bold tracking-wider transition-all select-none duration-200 active:scale-95 border border-[hsl(var(--tf-border))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-text))] hover:bg-[hsl(var(--tf-panel-2))] flex items-center gap-1"
+            title="Copy all execution steps as Excel-friendly TSV"
+          >
+            <Copy className="w-2.5 h-2.5" />
+            Copy Steps
+          </button>
         </div>
 
         <span
@@ -105,7 +158,7 @@ export default function ExecutionPanel() {
         >
           step {currentStepIdx + 1}
           <span className="text-[hsl(var(--tf-text-dim))]">
-            {" "}/ {trace.steps.length}
+            {" "}/ {stepsList.length}
           </span>
         </span>
       </div>
@@ -113,7 +166,7 @@ export default function ExecutionPanel() {
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* Prominent step indicator + current-step banner */}
         <div className="flex items-stretch gap-3">
-          <StepIndicator current={currentStepIdx + 1} total={trace.steps.length} />
+          <StepIndicator current={currentStepIdx + 1} total={stepsList.length} />
           <div
             key={`banner-${currentStepIdx}`}
             className="tf-fade-in flex-1 min-w-0 rounded-md border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel))] p-3"
@@ -149,6 +202,16 @@ export default function ExecutionPanel() {
                 </span>
               </div>
             )}
+            {step.warnings && step.warnings.length > 0 && (
+              <div className="mt-2 flex items-start gap-2 rounded border border-[hsl(var(--tf-danger))]/30 bg-[hsl(var(--tf-danger))]/10 px-2.5 py-1.5">
+                <span className="text-[10.5px] text-[hsl(var(--tf-danger))]">
+                  ⚠
+                </span>
+                <span className="text-[11.5px] text-[hsl(var(--tf-text))] leading-snug">
+                  {step.warnings[0]}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -168,9 +231,11 @@ export default function ExecutionPanel() {
 
           {compareModeEnabled && savedRun ? (
             (() => {
-              const savedStep = savedRun.steps[Math.min(currentStepIdx, savedRun.steps.length - 1)];
+              const savedSteps = savedRun.trace || savedRun.steps || [];
+              const savedIdx = Math.min(currentStepIdx, savedSteps.length - 1);
+              const savedStep = savedSteps[savedIdx];
               const savedVariables = savedStep ? savedStep.variables || {} : {};
-              const savedPrev = currentStepIdx > 0 ? savedRun.steps[currentStepIdx - 1] : null;
+              const savedPrev = currentStepIdx > 0 ? savedSteps[currentStepIdx - 1] : null;
               const savedChangedSet = savedStep ? diffChangedVars(savedStep, savedPrev) : new Set();
               const savedVarEntries = Object.entries(savedVariables);
 
@@ -305,13 +370,20 @@ function WhatChanged({ step, prev }) {
         <ul className="space-y-1.5">
           {changes.map((c, i) => {
             const isObj = typeof c === "object" && c !== null;
-            const text = isObj
-              ? (c.type === "init"
-                  ? `Initialized variable '${c.var}' to ${c.new}`
-                  : c.type === "delete"
-                    ? `Deleted variable '${c.var}' (was ${c.old})`
-                    : `Updated variable '${c.var}' from ${c.old} to ${c.new}`)
-              : c;
+            let text;
+            if (!isObj) {
+              text = c;
+            } else if (c.type === "init") {
+              text = `Initialized variable '${c.var}' to ${c.new}`;
+            } else if (c.type === "delete") {
+              text = `Deleted variable '${c.var}' (was ${c.old})`;
+            } else if (c.type === "print" || c.type === "note" || c.var === "unknown") {
+              // Verbatim narrative events (e.g. `printed "6"`, `condition … evaluated
+              // to true`, `loop exited`) carry the whole message in `new`.
+              text = c.new;
+            } else {
+              text = `Updated variable '${c.var}' from ${c.old} to ${c.new}`;
+            }
 
             return (
               <li

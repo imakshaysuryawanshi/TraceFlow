@@ -11,7 +11,9 @@
  * @property {number} line        1-indexed source line executing
  * @property {Object.<string, *>} variables  Full variable snapshot AFTER this step
  * @property {string[]} output    Full print buffer AFTER this step
- * @property {string[]} changes   Human-readable list of what changed here
+ * @property {(string|Object)[]} changes  What changed here — plain strings
+ *        ("sum changed from 0 to 1") or structured {var, old, new, type} dicts
+ *        (type ∈ init|update|delete|print|note).
  * @property {string} explanation Short (<=3 sentence) explanation
  *
  * -- optional UI hints (may be absent) --

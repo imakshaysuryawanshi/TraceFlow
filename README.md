@@ -16,6 +16,7 @@ TraceFlow is an interactive learning tool that visualizes step-by-step code exec
   - **Explanation Panel**: Step-wise explanations, concept hints, and detected program patterns.
 - **AI Explanations**: Choose a provider (Gemini, Groq, OpenRouter, or OpenAI) from Settings; the backend enriches each step with a live LLM explanation (falls back to templated text when AI is off or fails).
 - **Practice Mode**: Toggle on to get a multiple-choice "predict the next step" quiz after each step; progress is blocked until you answer correctly.
+- **Excel & Sheets Export**: Copy the entire execution trace table in a clean TSV (Tab-Separated Values) format with one click, including line numbers, statement execution, variables values, and line-by-line explanation text to paste directly into Excel or Google Sheets.
 - **Conditional Breakpoints**: Set breakpoints on any line (with an optional condition) and playback pauses when one is hit.
 - **Run Comparison**: Save a run as a baseline and step through two traces side-by-side to diff variables across versions.
 - **Input Variables**: Edit detected input variables directly in the editor panel and re-run the trace with your own values.
@@ -115,6 +116,12 @@ graph TD
     T --> W[Console Output]
 ```
 
+> **Security model:** single-user, no accounts, self-hosted. The backend is open
+> to any client that can reach it and is protected by CORS allowlist + rate
+> limits. LLM API keys are user-supplied (or server env vars) and never logged.
+> See **[`memory/SECURITY.md`](memory/SECURITY.md)** for the full access &
+> security requirements.
+
 ---
 
 ## 🚀 Getting Started
@@ -173,7 +180,7 @@ graph TD
 
 ## 🧪 Testing
 
-The backend test suite (**120 tests**) covers parser behavior across Java/Python/JavaScript, schema conformance, variable assignments, loops, conditionals, arrays, prints, division edge cases, pattern detection, and the API routers.
+The backend test suite (**144 tests**) covers parser behavior across Java/Python/JavaScript, schema conformance, variable assignments, loops, conditionals, arrays, prints, division edge cases, pattern detection, and the API routers.
 
 ```bash
 cd backend

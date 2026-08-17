@@ -37,7 +37,7 @@ export default function TimelineControls() {
   const goTo = useTraceStore((s) => s.goTo);
   const setSpeed = useTraceStore((s) => s.setSpeed);
 
-  const total = trace?.steps.length ?? 0;
+  const total = trace ? (trace.trace || trace.steps || []).length : 0;
   const atStart = currentStep === 0;
   const atEnd = trace ? currentStep === total - 1 : true;
   const stripExpanded = useTraceStore((s) => s.stripExpanded);

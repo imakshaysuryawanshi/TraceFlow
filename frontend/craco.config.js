@@ -128,8 +128,11 @@ webpackConfig.devServer = (devServerConfig) => {
   return devServerConfig;
 };
 
-// Wrap with visual edits (automatically adds babel plugin, dev server, and overlay in dev mode)
-if (isDevServer) {
+// Wrap with visual edits (automatically adds babel plugin, dev server, and
+// overlay in dev mode). OFF by default: the injected babel plugin can crash
+// compilation with "Maximum call stack size exceeded" on some JSX files
+// (e.g. VariableCard.jsx). Enable explicitly with ENABLE_VISUAL_EDITS=true.
+if (isDevServer && process.env.ENABLE_VISUAL_EDITS === "true") {
   try {
     const { withVisualEdits } = require("@emergentbase/visual-edits/craco");
     webpackConfig = withVisualEdits(webpackConfig);

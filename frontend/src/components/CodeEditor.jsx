@@ -26,6 +26,7 @@ export default function CodeEditor() {
   const runTrace = useTraceStore((s) => s.runTrace);
   const currentStep = useTraceStore(selectCurrentStep);
   const codeDirty = useTraceStore(selectCodeDirty);
+  const theme = useTraceStore((s) => s.theme);
 
   // Breakpoints
   const breakpoints = useTraceStore((s) => s.breakpoints);
@@ -42,6 +43,11 @@ export default function CodeEditor() {
   const handleInputChange = async (varName, newValue) => {
     const updatedCode = updateVariableInCode(draftCode, varName, newValue);
     setDraftCode(updatedCode);
+    
+    // If the input value is empty, do not trigger a backend run (prevents parsing invalid syntax e.g. "int sum = ;")
+    if (newValue.trim() === "") {
+      return;
+    }
     
     // Auto re-run trace to trigger execution engine refresh immediately
     setTimeout(() => {
@@ -76,8 +82,39 @@ export default function CodeEditor() {
         "editorIndentGuide.activeBackground": "#2a323d",
       },
     });
-    monaco.editor.setTheme("traceflow-dark");
+
+    monaco.editor.defineTheme("traceflow-light", {
+      base: "vs",
+      inherit: true,
+      rules: [
+        { token: "keyword", foreground: "0284c7" },
+        { token: "type", foreground: "0891b2" },
+        { token: "number", foreground: "d97706" },
+        { token: "string", foreground: "16a34a" },
+        { token: "comment", foreground: "9ca3af", fontStyle: "italic" },
+      ],
+      colors: {
+        "editor.background": "#ffffff",
+        "editor.foreground": "#0f172a",
+        "editorLineNumber.foreground": "#cbd5e1",
+        "editorLineNumber.activeForeground": "#64748b",
+        "editor.lineHighlightBackground": "#f8fafc",
+        "editor.selectionBackground": "#e0f2fe",
+        "editorCursor.foreground": "#0284c7",
+        "editorGutter.background": "#ffffff",
+        "editorIndentGuide.background": "#f1f5f9",
+        "editorIndentGuide.activeBackground": "#e2e8f0",
+      },
+    });
+
+    monaco.editor.setTheme(theme === "dark" ? "traceflow-dark" : "traceflow-light");
   };
+
+  useEffect(() => {
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(theme === "dark" ? "traceflow-dark" : "traceflow-light");
+    }
+  }, [theme]);
 
   // Update the current-line decoration whenever the step changes. Skipped
   // when the user has edited the code (line numbers may no longer match

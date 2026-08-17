@@ -53,9 +53,28 @@ _WRAPPER_LINE_OFFSET = 2  # number of preamble lines in _WRAPPER_PREFIX
 
 
 def _looks_wrapped(source: str) -> bool:
-    """Heuristic: does the source already contain a class declaration?"""
-    stripped = source.lstrip()
-    return stripped.startswith("class ") or stripped.startswith("public class ")
+    """Heuristic: does the source already contain a class declaration?
+
+    Leading whitespace and comments are skipped so a wrapped file that begins
+    with a `//` or `/* ... */` comment is still recognised and isn't wrapped a
+    second time.
+    """
+    text = source
+    while True:
+        text = text.lstrip()
+        if text.startswith("//"):
+            nl = text.find("\n")
+            if nl == -1:
+                return False
+            text = text[nl + 1 :]
+        elif text.startswith("/*"):
+            end = text.find("*/")
+            if end == -1:
+                return False
+            text = text[end + 2 :]
+        else:
+            break
+    return text.startswith("class ") or text.startswith("public class ")
 
 
 def _prepare(source: str) -> Tuple[str, int]:

@@ -4,7 +4,7 @@
 TraceFlow — "Follow every step your code takes."
 A learning tool that visualizes step-by-step Java execution so beginners can see current line, variable changes, condition evaluation, and output as they happen. NOT an IDE, NOT a compiler, NOT a challenge platform.
 
-**Scope for this build:** Phases 1–4 only (UI + Monaco + Execution Timeline with mock data). Validate UX early before building the parser/trace generator.
+**Scope for this build:** Phases 1–10 are all implemented and shipped (UI + Monaco + Execution Timeline, multi-language parsers, trace generator, AI explanations). This document records the original requirements and the build history; see README for the current feature set and roadmap.
 
 ## User Personas
 - Programming beginners
@@ -14,7 +14,7 @@ A learning tool that visualizes step-by-step Java execution so beginners can see
 - Developers learning new languages
 
 ## Core Requirements (static)
-- Java-only. Concepts: variables, arithmetic, assignment, print, if/else, for, while, basic methods.
+- **Java, Python, and JavaScript** (originally Java-only; Python/JS added in Phase 9). Concepts: variables, arithmetic, assignment, print, if/else, for, while, arrays, basic methods (planned).
 - Three-panel UI (Code | Execution | AI Explanation) + Output console + Timeline.
 - Step forward / back / replay / play-pause with variable + output tracking.
 - Dark, IDE-inspired aesthetic (Linear / Raycast / VS Code / Warp).
@@ -22,9 +22,9 @@ A learning tool that visualizes step-by-step Java execution so beginners can see
 
 ## Architecture
 - Frontend: React (CRA) + Tailwind + Zustand + Monaco Editor (@monaco-editor/react).
-- Backend: FastAPI serving `/api/traces` (list) and `/api/traces/{id}` (full trace) from `/app/backend/mock_traces.json`.
-- Trace schema (future-proof — matches planned parser output):
-  `{ id, name, description, concept, code, steps:[{ step, line, kind, label, variables, changed, output, explanation, condition?, condition_result? }] }`
+- Backend: FastAPI serving `/api/traces` (list), `/api/traces/{id}` (full trace) from `/app/backend/mock_traces.json`, plus `POST /api/parse` (javalang / Python `ast` / esprima) and `POST /api/execute` (parse → trace generator → optional AI explanation). See `memory/SECURITY.md` for the access & security model.
+- Trace schema (v1.0 FROZEN): see `/app/backend/schemas/trace_schema.py` and `/app/frontend/src/schemas/traceSchema.js`.
+  `{ id, name, description, concept, code, steps:[{ step, line, kind, label, variables, output, changes, explanation, condition?, condition_result? }] }`
 
 ## Implemented (2026-02)
 - **Phase 1 – Setup**: monaco + zustand added; theme tokens, JetBrains Mono + Inter.
@@ -70,5 +70,6 @@ A learning tool that visualizes step-by-step Java execution so beginners can see
 - Pause on manual next/prev while playing — **DONE** in `traceStore.next()/prev()`.
 
 ## Files (key)
-- Backend: `/app/backend/server.py`, `/app/backend/mock_traces.json`
-- Frontend: `/app/frontend/src/{App.js, index.css, App.css}`, `/app/frontend/src/store/traceStore.js`, `/app/frontend/src/constants/testIds.js`, `/app/frontend/src/components/{TopBar,CodeEditor,ExecutionPanel,VariableCard,AIExplanation,OutputConsole,TimelineControls}.jsx`
+- Docs: `/memory/PRD.md` (this file), `/memory/SECURITY.md` (access & security model), `/README.md` (current features, architecture, roadmap).
+- Backend: `/app/backend/server.py`, `/app/backend/mock_traces.json`, `/app/backend/parser/` (java.py, python.py, javascript.py), `/app/backend/trace_generator/generator.py`, `/app/backend/schemas/trace_schema.py`, `/app/backend/ratelimit.py`, `/app/backend/ai/explanation.py`
+- Frontend: `/app/frontend/src/{App.js, index.js}`, `/app/frontend/src/store/traceStore.js`, `/app/frontend/src/schemas/traceSchema.js`, `/app/frontend/src/constants/testIds.js`, `/app/frontend/src/components/{TopBar,CodeEditor,ExecutionPanel,VariableCard,AIExplanation,OutputConsole,TimelineControls,LoopIndicator}.jsx`

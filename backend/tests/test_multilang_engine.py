@@ -98,6 +98,29 @@ class TestPython:
         body_assigns = [s for s in steps if s["kind"] == "assign" and s.get("line") == 3]
         assert len(body_assigns) == 3
 
+    def test_range_stop_snapshot_once(self):
+        """range(start, stop) fixes stop at loop entry; mutating the bound
+        inside the body must not extend the loop (Python semantics)."""
+        steps = _run("n = 3\nfor i in range(0, n):\n    n += 1\n    pass", "python")
+        # 3 iterations (i = 0, 1, 2), then exit. If stop were re-read from n,
+        # the loop would never terminate (n grows with i).
+        assert steps[-1]["variables"]["i"] == 3
+        assert len([s for s in steps if s["kind"] == "condition"]) == 4  # 3 true + 1 exit
+
+    def test_python_and_or_return_operand(self):
+        """Python `and`/`or` return the deciding operand, not a bool."""
+        steps = _run("a = 5 and 3\nb = 0 or 7\nprint(a)\nprint(b)", "python")
+        assert steps[0]["variables"]["a"] == 3
+        assert steps[1]["variables"]["b"] == 7
+        assert steps[-1]["output"] == ["3", "7"]
+
+    def test_python_loop_iterations_populated(self):
+        """Loop condition/body steps carry control.iteration for the UI."""
+        steps = _run("for i in range(2):\n    pass", "python")
+        conds = [s for s in steps if s["kind"] == "condition"]
+        assert conds[0]["control"]["iteration"] == 1
+        assert conds[1]["control"]["iteration"] == 2
+
     def test_while_countdown(self):
         steps = _run("n = 3\nwhile n > 0:\n    print(n)\n    n -= 1", "python")
         assert steps[-1]["output"] == ["3", "2", "1"]
@@ -198,6 +221,28 @@ class TestJavaScript:
         """JavaScript has no integer type — `/` is always float."""
         steps = _run("let a = 7 / 2;\nconsole.log(a);", "javascript")
         assert steps[-1]["output"] == ["3.5"]
+
+    def test_js_whole_float_prints_as_integer(self):
+        """console.log renders a whole-number double as `2`, not `2.0`."""
+        steps = _run("let a = 4 / 2;\nconsole.log(a);", "javascript")
+        assert steps[-1]["output"] == ["2"]
+        assert steps[-1]["variables"]["a"] == 2.0  # value stays a float internally
+
+    def test_js_block_scoped_for_counter_may_redeclare(self):
+        """Two sequential for-loops can both declare `let i` (block scoped)."""
+        steps = _run(
+            "let total = 0;\nfor (let i = 1; i <= 2; i++) { total += i; }\n"
+            "for (let i = 1; i <= 2; i++) { total += i; }\nconsole.log(total);",
+            "javascript",
+        )
+        assert steps[-1]["variables"] == {"total": 6, "i": 3}
+        assert steps[-1]["output"] == ["6"]
+
+    def test_js_loop_iterations_populated(self):
+        steps = _run("let n = 2;\nwhile (n > 0) { n--; }", "javascript")
+        conds = [s for s in steps if s["kind"] == "condition"]
+        # True evaluations claim iterations 1 and 2; the final exit eval does not.
+        assert [c["control"]["iteration"] for c in conds] == [1, 2, None]
 
     def test_js_list_index_and_length(self):
         steps = _run(

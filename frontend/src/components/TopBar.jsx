@@ -12,6 +12,10 @@ import {
   Loader2,
   Globe,
   Settings,
+  Compass,
+  Sun,
+  Moon,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,6 +46,12 @@ export default function TopBar() {
   const running = useTraceStore((s) => s.running);
   const toggleInspector = useTraceStore((s) => s.toggleInspector);
   const codeDirty = useTraceStore(selectCodeDirty);
+  const dryRunOpen = useTraceStore((s) => s.dryRunOpen);
+  const toggleDryRun = useTraceStore((s) => s.toggleDryRun);
+  const theme = useTraceStore((s) => s.theme);
+  const toggleTheme = useTraceStore((s) => s.toggleTheme);
+  const insightOpen = useTraceStore((s) => s.insightOpen);
+  const toggleInsight = useTraceStore((s) => s.toggleInsight);
 
   const runDisabled = !trace || running;
   const runTitle = codeDirty
@@ -52,7 +62,12 @@ export default function TopBar() {
     const res = await runTrace();
     if (res && !res.ok) {
       const line = res.error.line != null ? ` (line ${res.error.line})` : "";
-      const stage = res.error.stage === "parse" ? "Parse error" : "Runtime error";
+      const stage =
+        res.error.stage === "parse"
+          ? "Parse error"
+          : res.error.stage === "rate_limit"
+            ? "Rate limited"
+            : "Runtime error";
       toast.error(`${stage}${line}`, {
         description: res.error.message,
         duration: 8000,
@@ -62,8 +77,9 @@ export default function TopBar() {
         },
       });
     } else if (res && res.ok && codeDirty) {
+      const traceSteps = res.trace ? (res.trace.trace || res.trace.steps || []) : [];
       toast.success("Trace generated", {
-        description: `${res.trace.steps.length} steps`,
+        description: `${traceSteps.length} steps`,
         duration: 2200,
       });
     }
@@ -76,8 +92,8 @@ export default function TopBar() {
     >
       {/* Brand */}
       <div className="flex items-center gap-2.5" data-testid={TF.logo}>
-        <div className="w-6 h-6 rounded-[5px] bg-gradient-to-br from-[hsl(var(--tf-accent))] to-[hsl(var(--tf-accent-2))] flex items-center justify-center">
-          <Waypoints className="w-3.5 h-3.5 text-black/80" strokeWidth={2.5} />
+        <div className="w-6 h-6 rounded-[5px] overflow-hidden bg-gradient-to-br from-[hsl(var(--tf-accent))] to-[hsl(var(--tf-accent-2))] flex items-center justify-center">
+          <img src="/logo.png" alt="TraceFlow Logo" className="w-full h-full object-cover" />
         </div>
         <div className="flex items-baseline gap-2">
           <span className="text-[15px] font-semibold tracking-tight">
@@ -108,25 +124,54 @@ export default function TopBar() {
             align="end"
             className="w-80 bg-[hsl(var(--tf-panel-2))] border-[hsl(var(--tf-border-strong))]"
           >
-            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-[hsl(var(--tf-text-dim))]">
-              Sample programs
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-[hsl(var(--tf-border))]" />
-            {samples.map((s) => (
-              <DropdownMenuItem
-                key={s.id}
-                data-testid={TF.sampleOption(s.id)}
-                onSelect={() => loadTrace(s.id)}
-                className="cursor-pointer focus:bg-[hsl(var(--tf-accent))]/10 focus:text-[hsl(var(--tf-text))] py-2"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">{s.name}</span>
-                  <span className="text-[11px] text-[hsl(var(--tf-text-muted))]">
-                    {s.description}
-                  </span>
-                </div>
-              </DropdownMenuItem>
-            ))}
+             {(() => {
+              const foundationIds = ["for-loop-sum", "if-else-grade", "while-countdown", "string-accum", "fibonacci-series", "string-palindrome"];
+              const foundationSamples = samples.filter((s) => foundationIds.includes(s.id));
+              const advancedSamples = samples.filter((s) => !foundationIds.includes(s.id));
+              return (
+                <>
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-[hsl(var(--tf-accent))] font-bold px-2 py-1">
+                    Foundation Basics (Freshers / Students)
+                  </DropdownMenuLabel>
+                  {foundationSamples.map((s) => (
+                    <DropdownMenuItem
+                      key={s.id}
+                      data-testid={TF.sampleOption(s.id)}
+                      onSelect={() => loadTrace(s.id)}
+                      className="cursor-pointer focus:bg-[hsl(var(--tf-accent))]/10 focus:text-[hsl(var(--tf-text))] py-1.5 px-2.5"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[12px] font-semibold">{s.name}</span>
+                        <span className="text-[10.5px] text-[hsl(var(--tf-text-muted))] leading-normal">
+                          {s.description}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                  
+                  <DropdownMenuSeparator className="bg-[hsl(var(--tf-border))] my-1.5" />
+                  
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-[hsl(var(--tf-accent-2))] font-bold px-2 py-1">
+                    Advanced Interview (Experienced Pros / Working)
+                  </DropdownMenuLabel>
+                  {advancedSamples.map((s) => (
+                    <DropdownMenuItem
+                      key={s.id}
+                      data-testid={TF.sampleOption(s.id)}
+                      onSelect={() => loadTrace(s.id)}
+                      className="cursor-pointer focus:bg-[hsl(var(--tf-accent-2))]/10 focus:text-[hsl(var(--tf-text))] py-1.5 px-2.5"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[12px] font-semibold">{s.name}</span>
+                        <span className="text-[10.5px] text-[hsl(var(--tf-text-muted))] leading-normal">
+                          {s.description}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              );
+             })()}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -188,6 +233,43 @@ export default function TopBar() {
               live
             </span>
           )}
+        </button>
+
+        {/* Dry Run Toggle Button */}
+        <button
+          onClick={toggleDryRun}
+          title={dryRunOpen ? "Close Dry Run Mode" : "Open Dry Run Mode"}
+          className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-medium transition-colors border ${
+            dryRunOpen
+              ? "border-[hsl(var(--tf-accent))]/40 bg-[hsl(var(--tf-accent))]/10 text-[hsl(var(--tf-accent))]"
+              : "border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel-2))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-accent))] hover:border-[hsl(var(--tf-accent))]/50"
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5" />
+          <span>Dry Run</span>
+        </button>
+
+        {/* Insight Toggle Button */}
+        <button
+          onClick={toggleInsight}
+          title={insightOpen ? "Close TraceFlow Insight" : "Open TraceFlow Insight"}
+          className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-medium transition-colors border ${
+            insightOpen
+              ? "border-[hsl(var(--tf-accent))]/40 bg-[hsl(var(--tf-accent))]/10 text-[hsl(var(--tf-accent))]"
+              : "border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel-2))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-accent))] hover:border-[hsl(var(--tf-accent))]/50"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Insight</span>
+        </button>
+
+        {/* Theme Toggler */}
+        <button
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className="w-8 h-8 rounded-md flex items-center justify-center border border-[hsl(var(--tf-border-strong))] bg-[hsl(var(--tf-panel-2))] text-[hsl(var(--tf-text-muted))] hover:text-[hsl(var(--tf-accent))] hover:border-[hsl(var(--tf-accent))]/50 transition-colors"
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
 
         {/* Settings */}

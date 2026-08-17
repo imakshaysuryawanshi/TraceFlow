@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, Depends, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -12,10 +12,23 @@ import ast
 from parser import parse as parse_source, ParserError
 from trace_generator import generate as generate_trace, TraceGenerationError
 from ai.explanation import explain_steps
+from ratelimit import rate_limit_execute, rate_limit_parse
 
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+
+# CORS origins allowed to call the backend. NEVER default to "*" — that is a
+# security hole (any origin can read responses). The default below covers the
+# local dev frontend; production must set CORS_ORIGINS to the exact origin(s),
+# e.g. "https://traceflow.example.com".
+_DEFAULT_CORS_ORIGINS = "http://localhost:3080,http://127.0.0.1:3080"
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", _DEFAULT_CORS_ORIGINS).split(",")
+    if o.strip()
+]
 
 
 
@@ -72,16 +85,35 @@ def _map_legacy_step(s: dict) -> dict:
             elif "changed from" in c:
                 parts = c.split("changed from")
                 var = parts[0].strip()
-                subparts = parts[1].split("to")
+                # Split on the *spaced* separator so a value containing the word
+                # "to" (e.g. "toString") doesn't truncate the value. limit=1
+                # keeps the remainder (old → new) intact.
+                subparts = parts[1].split(" to ", 1)
                 try:
                     old_val = ast.literal_eval(subparts[0].strip())
                     new_val = ast.literal_eval(subparts[1].strip())
                 except:
                     old_val = subparts[0].strip()
-                    new_val = subparts[1].strip()
+                    new_val = subparts[1].strip() if len(subparts) > 1 else ""
                 structured_changes.append({"var": var, "old": old_val, "new": new_val, "type": "update"})
+            elif " incremented from " in c or " decremented from " in c:
+                import re as _re
+                m = _re.match(r"^(\w+) (incremented|decremented) from (.*?) to (.*)$", c)
+                if m:
+                    var = m.group(1)
+                    try:
+                        old_val = ast.literal_eval(m.group(3))
+                        new_val = ast.literal_eval(m.group(4))
+                    except:
+                        old_val = m.group(3).strip()
+                        new_val = m.group(4).strip()
+                    structured_changes.append({"var": var, "old": old_val, "new": new_val, "type": "update"})
+                else:
+                    structured_changes.append({"var": "unknown", "old": None, "new": c, "type": "note"})
+            elif c.startswith("printed "):
+                structured_changes.append({"var": "output", "old": None, "new": c, "type": "print"})
             else:
-                structured_changes.append({"var": "unknown", "old": None, "new": c, "type": "update"})
+                structured_changes.append({"var": "unknown", "old": None, "new": c, "type": "note"})
         elif isinstance(c, dict):
             structured_changes.append(c)
     
@@ -105,7 +137,9 @@ def _map_legacy_step(s: dict) -> dict:
         "changes": structured_changes,
         "control": {
             "block": "main",
-            "iteration": s.get("step", 1) if condition else None,  # simple dynamic iteration fallback
+            # Static mock traces carry no per-iteration info; the frontend
+            # derives iteration counts from the condition steps instead.
+            "iteration": None,
             "condition": condition,
             "result": condition_result
         },
@@ -150,7 +184,7 @@ async def get_trace(trace_id: str):
             t["meta"] = {
                 "language": t.get("language", "java"),
                 "execution_id": trace_id,
-                "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "total_steps": len(t["steps"])
             }
             t["input"] = {
@@ -181,7 +215,7 @@ class ParseRequest(BaseModel):
     language: str = Field(default="java", description="java | python | javascript")
 
 
-@api_router.post("/parse")
+@api_router.post("/parse", dependencies=[Depends(rate_limit_parse)])
 async def parse_endpoint(req: ParseRequest):
     """Parse the given source into TraceFlow's simplified AST."""
     try:
@@ -206,7 +240,7 @@ class ExecuteRequest(BaseModel):
     ai_api_key: Optional[str] = Field(default=None, description="User-supplied API key for the AI provider")
 
 
-@api_router.post("/execute")
+@api_router.post("/execute", dependencies=[Depends(rate_limit_execute)])
 async def execute_endpoint(req: ExecuteRequest):
     """Parse + generate a trace for the given source. Returns a Trace."""
     try:
@@ -253,12 +287,38 @@ async def execute_endpoint(req: ExecuteRequest):
     return trace
 
 
+class InsightRequest(BaseModel):
+    intent: str = Field(..., description="explain_logic | explain_step | why_change | find_bugs | explain_complexity | challenge_me")
+    context: dict = Field(..., description="Context parameters: code, language, current_step, prev_step, output, question")
+    ai_provider: Optional[str] = Field(default=None, description="gemini | groq | openrouter | openai")
+    ai_model: Optional[str] = Field(default=None, description="Model override for the AI provider")
+    ai_api_key: Optional[str] = Field(default=None, description="User-supplied API key for the AI provider")
+
+
+@api_router.post("/insight", dependencies=[Depends(rate_limit_execute)])
+async def insight_endpoint(req: InsightRequest):
+    """Call the TraceFlow Insight engine and return a normalized JSON response."""
+    from ai.insight import ask_insight
+    response = await ask_insight(
+        intent=req.intent,
+        context=req.context,
+        provider=req.ai_provider,
+        model=req.ai_model,
+        api_key=req.ai_api_key,
+    )
+    return response
+
+
 app.include_router(api_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    # No cookies/sessions are used anywhere — the frontend talks to the API via
+    # JSON + bearer-free requests, so credentials are never needed. Keeping this
+    # False also means a misconfigured `CORS_ORIGINS=*` can never silently
+    # accept credentialed cross-origin requests (which browsers reject anyway).
+    allow_credentials=False,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

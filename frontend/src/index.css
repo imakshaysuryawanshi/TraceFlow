@@ -43,6 +43,44 @@
         --ring: 190 95% 55%;
         --radius: 6px;
     }
+
+    .light {
+        /* TraceFlow light palette — clean developer IDE style */
+        --tf-bg: 210 20% 98%; /* soft white */
+        --tf-panel: 0 0% 100%; /* pure white */
+        --tf-panel-2: 210 20% 95%; /* raised light grey */
+        --tf-border: 210 16% 90%;
+        --tf-border-strong: 210 16% 83%;
+        --tf-text: 220 20% 12%; /* dark slate text */
+        --tf-text-muted: 220 10% 45%;
+        --tf-text-dim: 220 8% 60%;
+        --tf-accent: 195 90% 42%; /* legible teal */
+        --tf-accent-2: 215 90% 48%; /* deep blue */
+        --tf-success: 155 70% 34%; /* forest green */
+        --tf-warning: 35 90% 38%; /* legible amber */
+        --tf-danger: 0 80% 45%; /* legible red */
+
+        /* shadcn mapping (light) */
+        --background: 210 20% 98%;
+        --foreground: 220 20% 12%;
+        --card: 0 0% 100%;
+        --card-foreground: 220 20% 12%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 220 20% 12%;
+        --primary: 195 90% 42%;
+        --primary-foreground: 210 20% 98%;
+        --secondary: 210 20% 95%;
+        --secondary-foreground: 220 20% 12%;
+        --muted: 210 20% 95%;
+        --muted-foreground: 220 10% 45%;
+        --accent: 210 20% 90%;
+        --accent-foreground: 220 20% 12%;
+        --destructive: 0 80% 45%;
+        --destructive-foreground: 210 20% 98%;
+        --border: 210 16% 90%;
+        --input: 210 16% 90%;
+        --ring: 195 90% 42%;
+    }
 }
 
 @layer base {
@@ -85,12 +123,12 @@
 .tf-grid-bg {
     background-image:
         linear-gradient(
-            hsl(220 8% 12% / 0.6) 1px,
+            hsl(var(--border) / 0.5) 1px,
             transparent 1px
         ),
         linear-gradient(
             90deg,
-            hsl(220 8% 12% / 0.6) 1px,
+            hsl(var(--border) / 0.5) 1px,
             transparent 1px
         );
     background-size: 32px 32px;
@@ -112,13 +150,13 @@
     background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-    background: hsl(220 8% 18%);
+    background: hsl(var(--tf-border-strong) / 0.8);
     border-radius: 6px;
     border: 2px solid transparent;
     background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-    background: hsl(220 8% 26%);
+    background: hsl(var(--tf-text-dim) / 0.8);
     background-clip: content-box;
     border: 2px solid transparent;
 }

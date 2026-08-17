@@ -513,6 +513,10 @@ def _for(node: ast.For, ctx: _Ctx, line: int) -> Dict[str, Any]:
         "condition": condition,
         "update": update,
         "body": _statements(node.body, ctx),
+        # Python evaluates range(start, stop, step) ONCE at loop entry; the
+        # generator uses this flag to snapshot the stop bound so mutations of
+        # the bound inside the body don't change the iteration count.
+        "range_semantics": True,
         "line": line,
     }
 

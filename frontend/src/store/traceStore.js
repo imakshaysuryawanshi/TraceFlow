@@ -80,7 +80,8 @@ const SAMPLE_CODES = {
 
 
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
 const API = `${BACKEND_URL}/api`;
 
 /**
@@ -138,7 +139,7 @@ export const useTraceStore = create((set, get) => ({
   addBreakpoint: (line, condition) => {
     const { breakpoints } = get();
     const newBp = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       line: Number(line),
       condition: condition.trim(),
       enabled: true
@@ -177,11 +178,12 @@ export const useTraceStore = create((set, get) => ({
   quizAnsweredCorrectly: false,
 
   togglePracticeMode: () => {
-    const { practiceModeEnabled, trace, currentStep } = get();
+    const { practiceModeEnabled, trace, currentStep, dryRunOpen, dryRunMode } = get();
     const nextVal = !practiceModeEnabled;
+    const isQuizActive = nextVal || (dryRunOpen && dryRunMode === "predict");
     set({
       practiceModeEnabled: nextVal,
-      activeQuiz: nextVal ? _generateQuiz(trace, currentStep) : null,
+      activeQuiz: isQuizActive ? _generateQuiz(trace, currentStep) : null,
       selectedAnswer: "",
       quizSubmitted: false,
       quizAnsweredCorrectly: false,
@@ -197,6 +199,37 @@ export const useTraceStore = create((set, get) => ({
     set({
       quizSubmitted: true,
       quizAnsweredCorrectly: isCorrect,
+    });
+  },
+
+  // ---------- active dry run mode ----------
+  dryRunOpen: false,
+  dryRunMode: "guided", // "guided" | "predict" | "practice"
+
+  toggleDryRun: () => {
+    const { dryRunOpen, trace, currentStep, dryRunMode, practiceModeEnabled } = get();
+    get().pause();
+    const nextOpen = !dryRunOpen;
+    const isQuizActive = practiceModeEnabled || (nextOpen && dryRunMode === "predict");
+    set({
+      dryRunOpen: nextOpen,
+      activeQuiz: isQuizActive ? _generateQuiz(trace, currentStep) : null,
+      selectedAnswer: "",
+      quizSubmitted: false,
+      quizAnsweredCorrectly: false,
+      breakpointHitMessage: "",
+    });
+  },
+
+  setDryRunMode: (mode) => {
+    const { trace, currentStep, practiceModeEnabled, dryRunOpen } = get();
+    const isQuizActive = practiceModeEnabled || (dryRunOpen && mode === "predict");
+    set({
+      dryRunMode: mode,
+      activeQuiz: isQuizActive ? _generateQuiz(trace, currentStep) : null,
+      selectedAnswer: "",
+      quizSubmitted: false,
+      quizAnsweredCorrectly: false,
     });
   },
 
@@ -239,6 +272,12 @@ export const useTraceStore = create((set, get) => ({
         currentStep: 0,
         traceLoading: false,
         execError: null,
+        // Debug/comparison state from the previous sample is stale —
+        // breakpoint line numbers and the saved baseline no longer apply.
+        breakpoints: [],
+        breakpointHitMessage: "",
+        savedRun: null,
+        compareModeEnabled: false,
         activeQuiz: get().practiceModeEnabled ? _generateQuiz({ ...data, code: canonicalForLang }, 0) : null,
         quizAnsweredCorrectly: false,
         selectedAnswer: "",
@@ -284,27 +323,28 @@ export const useTraceStore = create((set, get) => ({
   },
 
   setLanguage: (lang) => {
-    const { trace, draftCode, language } = get();
+    const { trace, language } = get();
     if (!trace || lang === language) return;
 
     const canonical = SAMPLE_CODES[trace.id];
-    const currentCanonical = canonical?.[language];
     const targetCanonical = canonical?.[lang];
 
-    if (currentCanonical && targetCanonical && draftCode === currentCanonical) {
-      // User hadn't edited — swap to target language's canonical code.
+    if (targetCanonical) {
+      // Always swap to target language's canonical code if available for this sample
       set({
         language: lang,
         draftCode: targetCanonical,
         trace: { ...trace, code: targetCanonical },
+        currentStep: 0,
+        execError: null,
       });
     } else {
-      // User had modified — keep their code, just switch language.
+      // If no canonical code exists for this language/sample (e.g. custom user code),
+      // just switch the highlighting language and keep the code.
       set({ language: lang });
     }
 
-    // Clear any persisted snippet — language changed so the old delta is
-    // stale. The user's in-memory draftCode is preserved either way.
+    // Clear any persisted snippet — language changed so the old delta is stale.
     clearSnippet(trace.id);
     saveLanguage(trace.id, lang);
   },
@@ -366,11 +406,17 @@ export const useTraceStore = create((set, get) => ({
               line: detail.line ?? null,
               stage: detail.stage || "execute",
             }
-          : {
-              message: e?.message || "Network error",
-              line: null,
-              stage: "network",
-            };
+          : typeof detail === "string"
+            ? {
+                message: detail,
+                line: null,
+                stage: "rate_limit",
+              }
+            : {
+                message: e?.message || "Network error",
+                line: null,
+                stage: "network",
+              };
       set({ running: false, execError });
       return { ok: false, error: execError };
     }
@@ -378,16 +424,17 @@ export const useTraceStore = create((set, get) => ({
 
   // ---------- playback ----------
   next: () => {
-    const { trace, currentStep, isPlaying, practiceModeEnabled, activeQuiz, quizAnsweredCorrectly } = get();
+    const { trace, currentStep, isPlaying, practiceModeEnabled, activeQuiz, quizAnsweredCorrectly, dryRunOpen, dryRunMode } = get();
     if (!trace) return;
-    if (practiceModeEnabled && activeQuiz && !quizAnsweredCorrectly) return;
+    const isQuizActive = practiceModeEnabled || (dryRunOpen && dryRunMode === "predict");
+    if (isQuizActive && activeQuiz && !quizAnsweredCorrectly) return;
     if (isPlaying) get().pause();
     const steps = trace.trace || trace.steps;
     if (currentStep < steps.length - 1) {
       const nextIdx = currentStep + 1;
       set({
         currentStep: nextIdx,
-        activeQuiz: practiceModeEnabled ? _generateQuiz(trace, nextIdx) : null,
+        activeQuiz: isQuizActive ? _generateQuiz(trace, nextIdx) : null,
         quizAnsweredCorrectly: false,
         selectedAnswer: "",
         quizSubmitted: false,
@@ -395,13 +442,14 @@ export const useTraceStore = create((set, get) => ({
     }
   },
   prev: () => {
-    const { currentStep, isPlaying, trace, practiceModeEnabled } = get();
+    const { currentStep, isPlaying, trace, practiceModeEnabled, dryRunOpen, dryRunMode } = get();
     if (isPlaying) get().pause();
+    const isQuizActive = practiceModeEnabled || (dryRunOpen && dryRunMode === "predict");
     if (currentStep > 0) {
       const prevIdx = currentStep - 1;
       set({
         currentStep: prevIdx,
-        activeQuiz: practiceModeEnabled ? _generateQuiz(trace, prevIdx) : null,
+        activeQuiz: isQuizActive ? _generateQuiz(trace, prevIdx) : null,
         quizAnsweredCorrectly: false,
         selectedAnswer: "",
         quizSubmitted: false,
@@ -409,32 +457,35 @@ export const useTraceStore = create((set, get) => ({
     }
   },
   goTo: (idx) => {
-    const { trace, practiceModeEnabled } = get();
+    const { trace, practiceModeEnabled, dryRunOpen, dryRunMode } = get();
     if (!trace) return;
+    const isQuizActive = practiceModeEnabled || (dryRunOpen && dryRunMode === "predict");
     const steps = trace.trace || trace.steps;
     const clamped = Math.max(0, Math.min(idx, steps.length - 1));
     set({
       currentStep: clamped,
-      activeQuiz: practiceModeEnabled ? _generateQuiz(trace, clamped) : null,
+      activeQuiz: isQuizActive ? _generateQuiz(trace, clamped) : null,
       quizAnsweredCorrectly: false,
       selectedAnswer: "",
       quizSubmitted: false,
     });
   },
   replay: () => {
-    const { trace, practiceModeEnabled } = get();
+    const { trace, practiceModeEnabled, dryRunOpen, dryRunMode } = get();
     get().pause();
+    const isQuizActive = practiceModeEnabled || (dryRunOpen && dryRunMode === "predict");
     set({
       currentStep: 0,
-      activeQuiz: practiceModeEnabled ? _generateQuiz(trace, 0) : null,
+      activeQuiz: isQuizActive ? _generateQuiz(trace, 0) : null,
       quizAnsweredCorrectly: false,
       selectedAnswer: "",
       quizSubmitted: false,
     });
   },
   play: () => {
-    const { _timer, isPlaying, trace, playbackSpeedMs, currentStep, practiceModeEnabled } = get();
-    if (isPlaying || !trace || practiceModeEnabled) return;
+    const { _timer, isPlaying, trace, playbackSpeedMs, currentStep, practiceModeEnabled, dryRunOpen, dryRunMode } = get();
+    const isQuizActive = practiceModeEnabled || (dryRunOpen && dryRunMode === "predict");
+    if (isPlaying || !trace || isQuizActive) return;
     const steps = trace.trace || trace.steps;
     if (currentStep >= steps.length - 1) set({ currentStep: 0 });
     if (_timer) clearInterval(_timer);
@@ -510,6 +561,123 @@ export const useTraceStore = create((set, get) => ({
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   closeInspector: () => set({ inspectorOpen: false }),
   toggleStrip: () => set((s) => ({ stripExpanded: !s.stripExpanded })),
+
+  // ---------- Theme Switcher ----------
+  theme: localStorage.getItem("traceflow.theme") || "dark",
+  toggleTheme: () => {
+    const nextTheme = get().theme === "dark" ? "light" : "dark";
+    localStorage.setItem("traceflow.theme", nextTheme);
+    set({ theme: nextTheme });
+  },
+
+  // ---------- TraceFlow Insight ----------
+  insightOpen: false,
+  insightHistory: [],
+  insightPending: false,
+  userRole: localStorage.getItem("traceflow.userRole") || "student_fresher",
+  setUserRole: (role) => {
+    localStorage.setItem("traceflow.userRole", role);
+    set({ userRole: role });
+  },
+
+  toggleInsight: () => {
+    const { insightOpen } = get();
+    set({ insightOpen: !insightOpen });
+  },
+
+  clearInsightHistory: () => set({ insightHistory: [] }),
+
+  askInsight: async (intent, userInput = "") => {
+    const state = get();
+    if (!state.trace) return;
+    
+    set({ insightPending: true });
+
+    // Gather dynamic context autoritatively
+    const steps = state.trace.trace || state.trace.steps || [];
+    const currentStepObj = steps[state.currentStep] || null;
+    const prevStepObj = state.currentStep > 0 ? steps[state.currentStep - 1] : null;
+
+    const payloadContext = {
+      code: state.draftCode || state.trace.code,
+      language: state.language,
+      current_step: currentStepObj ? {
+        step: currentStepObj.step,
+        line: currentStepObj.line,
+        code: currentStepObj.code,
+        kind: currentStepObj.kind || currentStepObj.type,
+        condition: currentStepObj.condition || null,
+        condition_result: currentStepObj.condition_result !== undefined ? currentStepObj.condition_result : null,
+        variables: currentStepObj.state?.variables || currentStepObj.variables || {}
+      } : null,
+      prev_step: prevStepObj ? {
+        step: prevStepObj.step,
+        line: prevStepObj.line,
+        code: prevStepObj.code,
+        kind: prevStepObj.kind || prevStepObj.type,
+        variables: prevStepObj.state?.variables || prevStepObj.variables || {}
+      } : null,
+      output: currentStepObj ? (currentStepObj.output || []) : [],
+      question: userInput,
+      user_role: state.userRole
+    };
+
+    try {
+      const { data } = await axios.post(`${API}/insight`, {
+        intent,
+        context: payloadContext,
+        ai_provider: state.aiProvider || null,
+        ai_model: state.aiModel || null,
+        ai_api_key: state.aiApiKey || null
+      });
+
+      const newMsg = {
+        id: Math.random().toString(36).substring(2, 11),
+        sender: "insight",
+        intent,
+        question: userInput || intent.replace(/_/g, " "),
+        response: data
+      };
+
+      set(s => ({
+        insightHistory: [...s.insightHistory, newMsg],
+        insightPending: false
+      }));
+    } catch (e) {
+      // Fallback offline handler when request fails
+      const fallbackResponse = {
+        status: "error",
+        intent,
+        title: "Service Temporarily Offline",
+        summary: "Could not establish a connection to the TraceFlow Insight engine.",
+        explanation: [
+          "Please check if your backend server is running on port 8080.",
+          "Verify that you have internet connectivity or that your AI keys are configured correctly."
+        ],
+        evidence: {
+          variables: {},
+          line: currentStepObj ? currentStepObj.line : 1
+        },
+        followUp: {
+          type: "none",
+          text: ""
+        }
+      };
+
+      const newMsg = {
+        id: Math.random().toString(36).substring(2, 11),
+        sender: "insight",
+        intent,
+        question: userInput || intent.replace(/_/g, " "),
+        response: fallbackResponse
+      };
+
+      set(s => ({
+        insightHistory: [...s.insightHistory, newMsg],
+        insightPending: false
+      }));
+    }
+  },
 }));
 
 // Initialize AI settings from localStorage
@@ -534,12 +702,25 @@ export const selectPrevStep = (state) => {
 export const selectProgress = (state) => {
   if (!state.trace) return 0;
   const steps = state.trace.trace || state.trace.steps;
+  if (!steps || steps.length === 0) return 0;
   return ((state.currentStep + 1) / steps.length) * 100;
 };
 
 /** Whether draftCode diverges from the loaded sample's original source. */
 export const selectCodeDirty = (state) =>
   !!state.trace && state.draftCode !== state.trace.code;
+
+/**
+ * Top up a quiz options set with random distractors. Bounded attempts so the
+ * loop can never spin forever even if the RNG keeps producing existing values.
+ */
+function _fillWithRandomDistractors(optionsSet) {
+  let guard = 0;
+  while (optionsSet.size < 4 && guard < 20) {
+    optionsSet.add(String(Math.floor(Math.random() * 100)));
+    guard += 1;
+  }
+}
 
 /**
  * Dynamically generates a multiple-choice practice question predicting the next step.
@@ -585,9 +766,7 @@ function _generateQuiz(trace, currentStepIdx) {
       optionsSet.add("undefined");
     }
     
-    while (optionsSet.size < 4) {
-      optionsSet.add(String(Math.floor(Math.random() * 10)));
-    }
+    _fillWithRandomDistractors(optionsSet);
     
     const options = Array.from(optionsSet);
     options.sort(() => Math.random() - 0.5);
@@ -605,7 +784,10 @@ function _generateQuiz(trace, currentStepIdx) {
   if (next.kind === "print") {
     const outputSoFar = curr.output || [];
     const knownOutput = outputSoFar[outputSoFar.length - 1];
-    const optionsSet = new Set();
+    // `output` is a cumulative buffer, so the value just printed is the
+    // LAST element of the next step's output.
+    const correctVal = String((next.output || []).slice(-1)[0]);
+    const optionsSet = new Set([correctVal]);
     if (knownOutput !== undefined) optionsSet.add(String(knownOutput));
     if (currVars && Object.keys(currVars).length > 0) {
       for (const v of Object.values(currVars)) {
@@ -614,16 +796,14 @@ function _generateQuiz(trace, currentStepIdx) {
     }
     optionsSet.add("undefined");
     optionsSet.add("null");
-    while (optionsSet.size < 4) {
-      optionsSet.add(String(Math.floor(Math.random() * 10)));
-    }
+    _fillWithRandomDistractors(optionsSet);
     return {
       type: "print",
       question: `The next statement (line ${next.line}) prints something to the console. What value will it output?`,
       options: Array.from(optionsSet)
         .sort(() => Math.random() - 0.5)
         .slice(0, 4),
-      correctAnswer: String((next.output || [])[0]),
+      correctAnswer: correctVal,
       hint: `Current variables are: ${JSON.stringify(currVars)}. Determine what the print statement evaluates to.`
     };
   }
@@ -651,18 +831,200 @@ function _generateQuiz(trace, currentStepIdx) {
 
 /**
  * Evaluates a conditional breakpoint expression using the variable values.
+ *
+ * Breakpoint conditions are tiny boolean expressions over the current step's
+ * variables (e.g. `i == 5`, `sum >= 10 && flag`). We parse and interpret them
+ * with a small tokenizer + recursive-descent parser instead of `new Function`,
+ * so user input is never executed as code (no XSS / injection surface).
+ *
+ * Supported: numbers, "strings", true/false, identifiers, parens, and
+ * `== != === !== < > <= >= && || ! + - * / %`.
  */
 function _evalBreakpointCondition(cond, vars) {
   if (!cond) return true;
-  let evalStr = cond;
-  for (const [k, v] of Object.entries(vars)) {
-    const valStr = typeof v === "string" ? `"${v}"` : String(v);
-    evalStr = evalStr.replace(new RegExp(`\\b${k}\\b`, "g"), valStr);
-  }
   try {
-    return Function(`"use strict"; return (${evalStr})`)();
+    return !!_parseBreakpointExpr(cond, vars || {});
   } catch (e) {
     return false;
   }
+}
+
+function _tokenizeBreakpoint(src) {
+  const tokens = [];
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (/\s/.test(c)) {
+      i += 1;
+      continue;
+    }
+    const rest = src.slice(i);
+    const multi = rest.match(/^(===|!==|==|!=|<=|>=|&&|\|\|)/);
+    if (multi) {
+      tokens.push({ type: "op", value: multi[0] });
+      i += multi[0].length;
+      continue;
+    }
+    if ("+-*/%<>!()".includes(c)) {
+      tokens.push({ type: "op", value: c });
+      i += 1;
+      continue;
+    }
+    const num = rest.match(/^(\d+\.\d+|\d+)/);
+    if (num) {
+      tokens.push({ type: "num", value: parseFloat(num[1]) });
+      i += num[1].length;
+      continue;
+    }
+    if (c === '"') {
+      let j = i + 1;
+      let buf = "";
+      let closed = false;
+      while (j < src.length) {
+        const ch = src[j];
+        if (ch === "\\") {
+          buf += ch + (src[j + 1] ?? "");
+          j += 2;
+          continue;
+        }
+        if (ch === '"') {
+          closed = true;
+          break;
+        }
+        buf += ch;
+        j += 1;
+      }
+      if (!closed) throw new Error("unterminated string");
+      tokens.push({ type: "str", value: JSON.parse(`"${buf}"`) });
+      i = j + 1;
+      continue;
+    }
+    const ident = rest.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+    if (ident) {
+      const word = ident[1];
+      if (word === "true") tokens.push({ type: "bool", value: true });
+      else if (word === "false") tokens.push({ type: "bool", value: false });
+      else tokens.push({ type: "ident", value: word });
+      i += word.length;
+      continue;
+    }
+    throw new Error(`unexpected character '${c}'`);
+  }
+  tokens.push({ type: "eof", value: undefined });
+  return tokens;
+}
+
+function _bpCompare(op, a, b) {
+  if (op === "<") return a < b;
+  if (op === ">") return a > b;
+  if (op === "<=") return a <= b;
+  if (op === ">=") return a >= b;
+  return false;
+}
+
+function _parseBreakpointExpr(src, vars) {
+  const tokens = _tokenizeBreakpoint(src);
+  let pos = 0;
+
+  const peek = () => tokens[pos];
+  const next = () => tokens[pos++];
+  const isOp = (v) => peek().type === "op" && peek().value === v;
+  const expectOp = (v) => {
+    if (!isOp(v)) throw new Error(`expected '${v}'`);
+    return next().value;
+  };
+
+  function primary() {
+    const t = next();
+    if (t.type === "num" || t.type === "str" || t.type === "bool") return t.value;
+    if (t.type === "ident") return vars[t.value]; // unknown var → undefined
+    if (t.type === "op" && t.value === "(") {
+      const v = orExpr();
+      expectOp(")");
+      return v;
+    }
+    throw new Error("unexpected token");
+  }
+
+  function unary() {
+    if (isOp("!")) {
+      next();
+      return !unary();
+    }
+    if (isOp("-")) {
+      next();
+      return -unary();
+    }
+    if (isOp("+")) {
+      next();
+      return +unary();
+    }
+    return primary();
+  }
+
+  function multiplicative() {
+    let v = unary();
+    while (isOp("*") || isOp("/") || isOp("%")) {
+      const op = next().value;
+      const r = unary();
+      v = op === "*" ? v * r : op === "/" ? v / r : v % r;
+    }
+    return v;
+  }
+
+  function additive() {
+    let v = multiplicative();
+    while (isOp("+") || isOp("-")) {
+      const op = next().value;
+      const r = multiplicative();
+      v = op === "+" ? v + r : v - r;
+    }
+    return v;
+  }
+
+  function relational() {
+    let v = additive();
+    while (isOp("<") || isOp(">") || isOp("<=") || isOp(">=")) {
+      const op = next().value;
+      const r = additive();
+      v = _bpCompare(op, v, r);
+    }
+    return v;
+  }
+
+  function equality() {
+    let v = relational();
+    while (isOp("==") || isOp("!=") || isOp("===") || isOp("!==")) {
+      const op = next().value;
+      const r = relational();
+      if (op === "===") v = v === r;
+      else if (op === "!==") v = v !== r;
+      else if (op === "==") v = v == r;
+      else v = v != r;
+    }
+    return v;
+  }
+
+  function andExpr() {
+    let v = equality();
+    while (isOp("&&")) {
+      next();
+      v = !!v && !!equality();
+    }
+    return v;
+  }
+
+  function orExpr() {
+    let v = andExpr();
+    while (isOp("||")) {
+      next();
+      v = !!v || !!andExpr();
+    }
+    return v;
+  }
+
+  const result = orExpr();
+  if (peek().type !== "eof") throw new Error("trailing tokens");
+  return result;
 }
 

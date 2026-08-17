@@ -19,9 +19,9 @@ REQUIRED_FIELDS = ["step", "line", "code", "type", "state", "changes", "control"
 MOCK_TRACES = json.loads((Path(__file__).parent.parent / "mock_traces.json").read_text())
 
 
-def _gen(code: str, sid: str = "test", concept: str = None) -> dict:
-    ast = parse(code)
-    return generate(ast, id=sid, name=sid, concept=concept, code=code)
+def _gen(code: str, sid: str = "test", concept: str = None, language: str = "java") -> dict:
+    ast = parse(code, language=language)
+    return generate(ast, id=sid, name=sid, concept=concept, code=code, language=language)
 
 
 def _assert_schema(trace: dict) -> None:
@@ -49,7 +49,7 @@ def _assert_schema(trace: dict) -> None:
 
 def test_schema_conformance_across_samples():
     for sample in MOCK_TRACES["samples"]:
-        tr = _gen(sample["code"], sid=sample["id"], concept=sample["concept"])
+        tr = _gen(sample["code"], sid=sample["id"], concept=sample["concept"], language=sample.get("language", "java"))
         _assert_schema(tr)
 
 
@@ -94,7 +94,7 @@ def _map_got_changes(got_changes, got_step):
 @pytest.mark.parametrize("sample_id", [s["id"] for s in MOCK_TRACES["samples"]])
 def test_matches_mock_trace(sample_id):
     mock = next(s for s in MOCK_TRACES["samples"] if s["id"] == sample_id)
-    tr = _gen(mock["code"], sid=mock["id"], concept=mock["concept"])
+    tr = _gen(mock["code"], sid=mock["id"], concept=mock["concept"], language=mock.get("language", "java"))
 
     steps = tr.get("trace") or tr.get("steps")
     assert len(steps) == len(mock["steps"]), (

@@ -118,7 +118,7 @@ export function extractVariablesFromCode(code) {
  */
 export function updateVariableInCode(code, varName, newValue) {
   if (!code) return "";
-  const declRegex = new RegExp(`(\\b(?:int|double|float|long|boolean|String|let|const|var|char)\\s+${varName}\\s*=\\s*)[^;\\s]+(\\s*;?)`, "g");
+  const declRegex = new RegExp(`(\\b(?:int|double|float|long|boolean|String|let|const|var|char)\\s+${varName}\\s*=\\s*)[^\\n\\r;]+(\\s*;?)`, "g");
   if (declRegex.test(code)) {
     return code.replace(declRegex, `$1${newValue}$2`);
   }

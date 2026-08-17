@@ -26,6 +26,8 @@ EXPECTED_IDS = {
     "flag-toggle",
     "string-accum",
     "array-sum",
+    "string-palindrome",
+    "fibonacci-series",
 }
 
 
@@ -125,14 +127,27 @@ class TestGetTrace:
 
 # --- CORS ---------------------------------------------------------------------
 class TestCORS:
-    def test_cors_headers_present(self):
+    def test_preflight_allows_configured_origin(self):
         r = requests.options(
             f"{API}/traces",
             headers={
-                "Origin": "https://example.com",
+                "Origin": "http://localhost:3080",
                 "Access-Control-Request-Method": "GET",
             },
             timeout=15,
         )
         # Some ingress return 200/204 for preflight
         assert r.status_code in (200, 204)
+
+    def test_preflight_rejects_disallowed_origin(self):
+        # CORS is locked to configured origins — a foreign origin must not be
+        # allowed through (Starlette answers disallowed preflights with 400).
+        r = requests.options(
+            f"{API}/traces",
+            headers={
+                "Origin": "https://evil.example.com",
+                "Access-Control-Request-Method": "GET",
+            },
+            timeout=15,
+        )
+        assert r.status_code == 400

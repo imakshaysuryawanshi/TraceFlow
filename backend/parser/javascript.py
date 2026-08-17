@@ -233,18 +233,23 @@ def _statements(nodes: List[Any], ctx: _Ctx) -> List[Dict[str, Any]]:
     return out
 
 
-def _var_decl(node: Any, ctx: _Ctx, line: int) -> Dict[str, Any]:
+def _var_decl(node: Any, ctx: _Ctx, line: int, allow_redeclare: bool = False) -> Dict[str, Any]:
     if len(node.declarations) != 1:
         raise ParserError("multiple declarations on one line are not supported", line)
     d = node.declarations[0]
     if d.id.type != "Identifier":
         raise ParserError("destructuring declarations are not supported", line)
     name = d.id.name
-    if name in ctx.declared:
+    # `let`/`const` inside a for-init are block-scoped to that loop, so
+    # shadowing an outer binding (e.g. two sequential `for (let i = …)`) is legal.
+    if name in ctx.declared and not allow_redeclare:
         raise ParserError(f"variable '{name}' is already declared", line)
     ctx.declared.add(name)
     if node.kind == "const":
         ctx.consts.add(name)
+    else:
+        # The for-init binding shadows any outer const/let of the same name.
+        ctx.consts.discard(name)
 
     return {
         "kind": "var_decl",
@@ -364,7 +369,7 @@ def _for(node: Any, ctx: _Ctx, line: int) -> Dict[str, Any]:
     init: Optional[Dict[str, Any]] = None
     if node.init is not None:
         if node.init.type == "VariableDeclaration":
-            init = _var_decl(node.init, ctx, _line(node.init))
+            init = _var_decl(node.init, ctx, _line(node.init), allow_redeclare=True)
         elif node.init.type == "AssignmentExpression":
             init = _handle_assignment(node.init, ctx, _line(node.init))
         elif node.init.type == "UpdateExpression":

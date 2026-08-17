@@ -44,7 +44,7 @@ class TraceGenerationError(Exception):
 
 
 class _Emitter:
-    def __init__(self, *, integer_division: bool = True) -> None:
+    def __init__(self, *, integer_division: bool = True, language: str = "java") -> None:
         self.vars: Dict[str, Any] = {}
         self._prev_vars: Dict[str, Any] = {}
         self.output: List[str] = []
@@ -52,7 +52,11 @@ class _Emitter:
         self._step_num: int = 1
         self.stopped: bool = False
         self.integer_division: bool = integer_division
+        self.language: str = language
         self.loop_depth: int = 0
+        # Stack of current loop iteration counters so body/update steps can
+        # carry `control.iteration` for the UI loop indicator.
+        self.iterations: List[int] = []
 
     def emit(
         self,
@@ -68,6 +72,9 @@ class _Emitter:
         iteration: Optional[int] = None,
     ) -> None:
         # Calculate structured variable changes
+        if iteration is None and self.iterations:
+            # Steps executed inside a loop body/update belong to the current iteration.
+            iteration = self.iterations[-1]
         changes_list = []
         for k, v in self.vars.items():
             if k not in self._prev_vars:
@@ -193,9 +200,24 @@ def _evaluate(expr: Dict[str, Any], em: _Emitter) -> Any:
         return em.vars[name]
 
     if kind == "binary":
+        op = expr["op"]
+        # Short-circuit evaluation — Java/JS/Python all evaluate `&&` / `||`
+        # lazily, and teaching correct control-flow matters. JS and Python
+        # return the deciding *operand* (not a coerced bool); Java operands are
+        # always booleans so it behaves identically there.
+        if op == "&&":
+            left = _evaluate(expr["left"], em)
+            if not left:
+                return left
+            return _evaluate(expr["right"], em)
+        if op == "||":
+            left = _evaluate(expr["left"], em)
+            if left:
+                return left
+            return _evaluate(expr["right"], em)
         left = _evaluate(expr["left"], em)
         right = _evaluate(expr["right"], em)
-        return _apply_binary(expr["op"], left, right, expr.get("line"), em)
+        return _apply_binary(op, left, right, expr.get("line"), em)
 
     if kind == "unary":
         return _evaluate_unary_pure(expr, em)
@@ -210,13 +232,13 @@ def _evaluate(expr: Dict[str, Any], em: _Emitter) -> Any:
     if kind == "index":
         target = _evaluate(expr["target"], em)
         idx = _evaluate(expr["index"], em)
-        if not isinstance(target, list):
+        if not isinstance(target, (list, str)):
             raise TraceGenerationError(
-                f"cannot index a non-list value", expr.get("line")
+                f"cannot index a non-list/non-string value", expr.get("line")
             )
         if not isinstance(idx, int) or idx < 0 or idx >= len(target):
             raise TraceGenerationError(
-                f"index {idx} out of bounds for a list of length {len(target)}",
+                f"index {idx} out of bounds for a target of length {len(target)}",
                 expr.get("line"),
             )
         return target[idx]
@@ -236,8 +258,8 @@ def _evaluate(expr: Dict[str, Any], em: _Emitter) -> Any:
 
     if kind == "length":
         target = _evaluate(expr["target"], em)
-        if not isinstance(target, list):
-            raise TraceGenerationError("length access requires a list", expr.get("line"))
+        if not isinstance(target, (list, str)):
+            raise TraceGenerationError("length access requires a list or string", expr.get("line"))
         return len(target)
 
     raise TraceGenerationError(f"unsupported expression kind: {kind}", expr.get("line"))
@@ -277,6 +299,18 @@ def _evaluate_unary_pure(expr: Dict[str, Any], em: _Emitter) -> Any:
 
 def _apply_binary(op: str, a: Any, b: Any, line: Optional[int], em: _Emitter) -> Any:
     if op == "+":
+        # Java and JavaScript coerce a non-string operand to a String when the
+        # other side is a String; Python raises TypeError instead.
+        if isinstance(a, str) or isinstance(b, str):
+            if em.language.lower() in ("java", "javascript", "js"):
+                return _fmt_value(a) + _fmt_value(b)
+            if isinstance(a, str) and isinstance(b, str):
+                return a + b
+            raise TraceGenerationError(
+                f"cannot concatenate '{_type_name(a)}' and '{_type_name(b)}' "
+                "(Python does not coerce numbers to strings implicitly)",
+                line,
+            )
         return a + b
     if op == "-":
         return a - b
@@ -317,9 +351,9 @@ def _apply_binary(op: str, a: Any, b: Any, line: Optional[int], em: _Emitter) ->
     if op == ">=":
         return a >= b
     if op == "&&":
-        return bool(a) and bool(b)
+        return a if not a else b
     if op == "||":
-        return bool(a) or bool(b)
+        return a if a else b
     raise TraceGenerationError(f"unsupported binary operator '{op}'", line)
 
 
@@ -381,13 +415,33 @@ def _stringify(expr: Optional[Dict[str, Any]]) -> str:
     return "?"
 
 
-def _fmt_value(v: Any) -> str:
-    """Format a runtime value the way Java's default `println` would."""
+def _fmt_value(v: Any, *, js: bool = False) -> str:
+    """Format a runtime value for display.
+
+    Java's `println` and Python's `print` render a whole-number double as
+    `2.0`, but JavaScript's `console.log` renders it as `2`.
+    """
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, list):
-        return "[" + ", ".join(_fmt_value(x) for x in v) + "]"
+        return "[" + ", ".join(_fmt_value(x, js=js) for x in v) + "]"
+    if js and isinstance(v, float) and v.is_integer():
+        return str(int(v))
     return str(v)
+
+
+def _type_name(v: Any) -> str:
+    if isinstance(v, bool):
+        return "bool"
+    if isinstance(v, int):
+        return "int"
+    if isinstance(v, float):
+        return "float"
+    if isinstance(v, str):
+        return "str"
+    if isinstance(v, list):
+        return "list"
+    return type(v).__name__
 
 
 # ---------------------------------------------------------------------------
@@ -609,12 +663,18 @@ def _exec_unary_stmt(stmt: Dict[str, Any], em: _Emitter, *, as_kind: str) -> Non
 
 def _exec_print(stmt: Dict[str, Any], em: _Emitter) -> None:
     value = _evaluate(stmt["value"], em) if stmt.get("value") is not None else ""
-    disp = _fmt_value(value)
+    disp = _fmt_value(value, js=em.language.lower() in ("javascript", "js"))
     em.output.append(disp)
 
     expr_str = _stringify(stmt.get("value")) or ""
-    method = "println" if stmt.get("newline", True) else "print"
-    label = f"System.out.{method}({expr_str})"
+    newline = stmt.get("newline", True)
+    if em.language.lower() == "python":
+        label = f"print({expr_str})"
+    elif em.language.lower() in ("javascript", "js"):
+        label = f"console.log({expr_str})" if newline else f"process.stdout.write({expr_str})"
+    else:
+        method = "println" if newline else "print"
+        label = f"System.out.{method}({expr_str})"
     em.emit(
         line=stmt["line"],
         kind="print",
@@ -684,34 +744,53 @@ def _exec_for(stmt: Dict[str, Any], em: _Emitter) -> None:
     cond_expr = stmt.get("condition")
     cond_str = _stringify(cond_expr) if cond_expr is not None else "true"
 
+    # Python range(start, stop, step) snapshots its bounds ONCE at loop entry;
+    # mutating the bound variable inside the body must not extend/contract the
+    # loop. Cache the stop operand and compare the counter against the cached
+    # value each iteration.
+    bound_cache = None
+    if stmt.get("range_semantics") and cond_expr is not None and cond_expr["kind"] == "binary":
+        bound_cache = _evaluate(cond_expr["right"], em)
+
+    iteration = 1
     while True:
         if em.stopped:
             return
         # 2. evaluate condition → emit a "condition" step
-        result = bool(_evaluate(cond_expr, em)) if cond_expr is not None else True
-        _emit_loop_condition(em, stmt["line"], cond_str, result)
+        if bound_cache is not None:
+            left = _evaluate(cond_expr["left"], em)
+            result = bool(_apply_binary(cond_expr["op"], left, bound_cache, stmt["line"], em))
+        else:
+            result = bool(_evaluate(cond_expr, em)) if cond_expr is not None else True
+        # A false (loop-exit) evaluation isn't an iteration — leave it to the
+        # frontend's loop-context heuristic so the exit check shows no badge.
+        _emit_loop_condition(em, stmt["line"], cond_str, result, iteration=iteration if result else None)
         if not result:
             return
 
         # 3. body — executes one nesting level deeper
         em.loop_depth += 1
+        em.iterations.append(iteration)
         try:
             for s in stmt.get("body", []):
                 if em.stopped:
                     return
                 _exec(s, em)
+
+            # 4. update — emit a "loop-step"
+            upd = stmt.get("update")
+            if upd is not None:
+                if upd["kind"] == "assign":
+                    _exec_assign(upd, em, as_kind="loop-step")
+                elif upd["kind"] == "unary_stmt":
+                    _exec_unary_stmt(upd, em, as_kind="loop-step")
+                else:
+                    _exec(upd, em)
         finally:
             em.loop_depth -= 1
+            em.iterations.pop()
 
-        # 4. update — emit a "loop-step"
-        upd = stmt.get("update")
-        if upd is not None:
-            if upd["kind"] == "assign":
-                _exec_assign(upd, em, as_kind="loop-step")
-            elif upd["kind"] == "unary_stmt":
-                _exec_unary_stmt(upd, em, as_kind="loop-step")
-            else:
-                _exec(upd, em)
+        iteration += 1
 
 
 def _exec_loop_init_decl(stmt: Dict[str, Any], em: _Emitter) -> None:
@@ -738,14 +817,16 @@ def _exec_loop_init_decl(stmt: Dict[str, Any], em: _Emitter) -> None:
 def _exec_while(stmt: Dict[str, Any], em: _Emitter) -> None:
     cond_expr = stmt["condition"]
     cond_str = _stringify(cond_expr)
+    iteration = 1
     while True:
         if em.stopped:
             return
         result = bool(_evaluate(cond_expr, em))
-        _emit_loop_condition(em, stmt["line"], cond_str, result)
+        _emit_loop_condition(em, stmt["line"], cond_str, result, iteration=iteration if result else None)
         if not result:
             return
         em.loop_depth += 1
+        em.iterations.append(iteration)
         try:
             for s in stmt.get("body", []):
                 if em.stopped:
@@ -753,9 +834,12 @@ def _exec_while(stmt: Dict[str, Any], em: _Emitter) -> None:
                 _exec(s, em)
         finally:
             em.loop_depth -= 1
+            em.iterations.pop()
+        iteration += 1
 
 
-def _emit_loop_condition(em: _Emitter, line: int, cond_str: str, result: bool) -> None:
+def _emit_loop_condition(em: _Emitter, line: int, cond_str: str, result: bool,
+                         iteration: Optional[int] = None) -> None:
     changes = [f"condition {cond_str} evaluated to {str(result).lower()}"]
     if not result:
         changes.append("loop exited")
@@ -780,6 +864,7 @@ def _emit_loop_condition(em: _Emitter, line: int, cond_str: str, result: bool) -
         ),
         condition=cond_str,
         condition_result=result,
+        iteration=iteration,
     )
 
 
@@ -800,14 +885,18 @@ def generate(
 ) -> Dict[str, Any]:
     """Generate a full Trace from a parsed AST.
 
-    The `language` argument only affects arithmetic semantics (Java uses
-    integer division for `int / int`; Python and JavaScript use float
-    division). The emitted Trace shape is identical across languages.
+    The `language` argument affects semantics (Java uses integer division for
+    `int / int`, string concatenation coercion, and `System.out` print labels;
+    Python and JavaScript use float division, and print via `print` /
+    `console.log`). The emitted Trace shape is identical across languages.
     """
     if not ast or ast.get("kind") != "program":
         raise TraceGenerationError("input is not a valid program AST")
 
-    em = _Emitter(integer_division=(language.lower() == "java"))
+    em = _Emitter(
+        integer_division=(language.lower() == "java"),
+        language=language,
+    )
     for stmt in ast.get("statements", []):
         if em.stopped:
             break
@@ -825,6 +914,7 @@ def generate(
         initial_params = em.steps[0].get("state", {}).get("variables", {})
 
     import datetime
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     trace: Dict[str, Any] = {
         # Legacy/Compatibility Root Fields
         "id": id,
@@ -835,12 +925,12 @@ def generate(
         "steps": em.steps,
         "patterns": patterns,
         "signals": signals,
-        
+
         # Proposed Unified Schema Nodes
         "meta": {
             "language": language,
             "execution_id": id,
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "timestamp": timestamp,
             "total_steps": len(em.steps)
         },
         "input": {

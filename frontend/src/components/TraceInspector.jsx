@@ -26,7 +26,7 @@ export default function TraceInspector() {
   if (!open) return null;
 
   const validationProblems = trace
-    ? trace.steps.flatMap((s, i) =>
+    ? (trace.trace || trace.steps || []).flatMap((s, i) =>
         validateStep(s).map((msg) => `step ${i + 1}: ${msg}`)
       )
     : [];
@@ -99,7 +99,7 @@ export default function TraceInspector() {
             <SchemaView
               problems={validationProblems}
               isValid={isValid}
-              stepCount={trace?.steps.length || 0}
+              stepCount={(trace ? (trace.trace || trace.steps) : []).length}
             />
           ) : (
             <>

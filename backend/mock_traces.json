@@ -2509,6 +2509,645 @@
           "label": "System.out.println(sum)"
         }
       ]
+    },
+    {
+      "id": "string-palindrome",
+      "name": "Strings \u00e2\u20ac\u201d Palindrome Check",
+      "description": "Check if a string is a palindrome by comparing characters from start to end.",
+      "concept": "strings",
+      "code": "let word = \"noon\";\nlet isPal = true;\nfor (let i = 0; i < word.length / 2; i++) {\n    if (word[i] !== word[word.length - 1 - i]) {\n        isPal = false;\n    }\n}\nconsole.log(isPal);",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "word": "noon"
+          },
+          "output": [],
+          "changes": [
+            "word initialized to noon"
+          ],
+          "explanation": "The variable word is declared and initialized to noon.",
+          "kind": "declare"
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "word": "noon",
+            "isPal": true
+          },
+          "output": [],
+          "changes": [
+            "isPal initialized to true"
+          ],
+          "explanation": "The variable isPal is declared and initialized to true.",
+          "kind": "declare"
+        },
+        {
+          "step": 3,
+          "line": 3,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 0"
+          ],
+          "explanation": "The loop counter i is initialized to 0. The condition will be evaluated next.",
+          "kind": "loop-init"
+        },
+        {
+          "step": 4,
+          "line": 3,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "condition i < word.length / 2 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < word.length / 2' evaluates to true (i = 0, word = noon), so we enter the loop body.",
+          "kind": "condition",
+          "condition": "i < word.length / 2",
+          "condition_result": true
+        },
+        {
+          "step": 5,
+          "line": 4,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 0
+          },
+          "output": [],
+          "changes": [
+            "condition word[i] != word[word.length - 1 - i] evaluated to false",
+            "took else branch"
+          ],
+          "explanation": "The condition 'word[i] != word[word.length - 1 - i]' evaluates to false (word = noon, i = 0, word = noon, word = noon, i = 0). The if branch is skipped.",
+          "kind": "condition",
+          "condition": "word[i] != word[word.length - 1 - i]",
+          "condition_result": false
+        },
+        {
+          "step": 6,
+          "line": 3,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 0 to 1"
+          ],
+          "explanation": "i is incremented to 1. The condition will be re-checked.",
+          "kind": "loop-step"
+        },
+        {
+          "step": 7,
+          "line": 3,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i < word.length / 2 evaluated to true"
+          ],
+          "explanation": "The loop condition 'i < word.length / 2' evaluates to true (i = 1, word = noon), so we enter the loop body.",
+          "kind": "condition",
+          "condition": "i < word.length / 2",
+          "condition_result": true
+        },
+        {
+          "step": 8,
+          "line": 4,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition word[i] != word[word.length - 1 - i] evaluated to false",
+            "took else branch"
+          ],
+          "explanation": "The condition 'word[i] != word[word.length - 1 - i]' evaluates to false (word = noon, i = 1, word = noon, word = noon, i = 1). The if branch is skipped.",
+          "kind": "condition",
+          "condition": "word[i] != word[word.length - 1 - i]",
+          "condition_result": false
+        },
+        {
+          "step": 9,
+          "line": 3,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step"
+        },
+        {
+          "step": 10,
+          "line": 3,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 2
+          },
+          "output": [],
+          "changes": [
+            "condition i < word.length / 2 evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i < word.length / 2' evaluates to false (i = 2, word = noon), so the loop exits.",
+          "kind": "condition",
+          "condition": "i < word.length / 2",
+          "condition_result": false
+        },
+        {
+          "step": 11,
+          "line": 8,
+          "variables": {
+            "word": "noon",
+            "isPal": true,
+            "i": 2
+          },
+          "output": [
+            "true"
+          ],
+          "changes": [
+            "printed \"true\""
+          ],
+          "explanation": "The value true is printed to the console.",
+          "kind": "print"
+        }
+      ],
+      "language": "javascript"
+    },
+    {
+      "id": "fibonacci-series",
+      "name": "Numbers \u00e2\u20ac\u201d Fibonacci Series",
+      "description": "Generate the first 3 numbers of the Fibonacci series.",
+      "concept": "numbers",
+      "code": "int n = 3;\nint t1 = 0;\nint t2 = 1;\nfor (int i = 1; i <= n; i++) {\n    System.out.println(t1);\n    int sum = t1 + t2;\n    t1 = t2;\n    t2 = sum;\n}",
+      "steps": [
+        {
+          "step": 1,
+          "line": 1,
+          "variables": {
+            "n": 3
+          },
+          "output": [],
+          "changes": [
+            "n initialized to 3"
+          ],
+          "explanation": "The variable n is declared and initialized to 3.",
+          "kind": "declare"
+        },
+        {
+          "step": 2,
+          "line": 2,
+          "variables": {
+            "n": 3,
+            "t1": 0
+          },
+          "output": [],
+          "changes": [
+            "t1 initialized to 0"
+          ],
+          "explanation": "The variable t1 is declared and initialized to 0.",
+          "kind": "declare"
+        },
+        {
+          "step": 3,
+          "line": 3,
+          "variables": {
+            "n": 3,
+            "t1": 0,
+            "t2": 1
+          },
+          "output": [],
+          "changes": [
+            "t2 initialized to 1"
+          ],
+          "explanation": "The variable t2 is declared and initialized to 1.",
+          "kind": "declare"
+        },
+        {
+          "step": 4,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 0,
+            "t2": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "i initialized to 1"
+          ],
+          "explanation": "The loop counter i is initialized to 1. The condition will be evaluated next.",
+          "kind": "loop-init"
+        },
+        {
+          "step": 5,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 0,
+            "t2": 1,
+            "i": 1
+          },
+          "output": [],
+          "changes": [
+            "condition i <= n evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= n' evaluates to true (i = 1, n = 3), so we enter the loop body.",
+          "kind": "condition",
+          "condition": "i <= n",
+          "condition_result": true
+        },
+        {
+          "step": 6,
+          "line": 5,
+          "variables": {
+            "n": 3,
+            "t1": 0,
+            "t2": 1,
+            "i": 1
+          },
+          "output": [
+            "0"
+          ],
+          "changes": [
+            "printed \"0\""
+          ],
+          "explanation": "The value 0 is printed to the console.",
+          "kind": "print"
+        },
+        {
+          "step": 7,
+          "line": 6,
+          "variables": {
+            "n": 3,
+            "t1": 0,
+            "t2": 1,
+            "i": 1,
+            "sum": 1
+          },
+          "output": [
+            "0"
+          ],
+          "changes": [
+            "sum initialized to 1"
+          ],
+          "explanation": "The variable sum is declared and initialized to 1.",
+          "kind": "declare"
+        },
+        {
+          "step": 8,
+          "line": 7,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 1,
+            "sum": 1
+          },
+          "output": [
+            "0"
+          ],
+          "changes": [
+            "t1 changed from 0 to 1"
+          ],
+          "explanation": "t1 = t2 updates t1. It changes from 0 to 1.",
+          "kind": "assign"
+        },
+        {
+          "step": 9,
+          "line": 8,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 1,
+            "sum": 1
+          },
+          "output": [
+            "0"
+          ],
+          "changes": [
+            "t2 changed from 1 to 1"
+          ],
+          "explanation": "t2 = sum updates t2. It changes from 1 to 1.",
+          "kind": "assign"
+        },
+        {
+          "step": 10,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 2,
+            "sum": 1
+          },
+          "output": [
+            "0"
+          ],
+          "changes": [
+            "i incremented from 1 to 2"
+          ],
+          "explanation": "i is incremented to 2. The condition will be re-checked.",
+          "kind": "loop-step"
+        },
+        {
+          "step": 11,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 2,
+            "sum": 1
+          },
+          "output": [
+            "0"
+          ],
+          "changes": [
+            "condition i <= n evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= n' evaluates to true (i = 2, n = 3), so we enter the loop body.",
+          "kind": "condition",
+          "condition": "i <= n",
+          "condition_result": true
+        },
+        {
+          "step": 12,
+          "line": 5,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 2,
+            "sum": 1
+          },
+          "output": [
+            "0",
+            "1"
+          ],
+          "changes": [
+            "printed \"1\""
+          ],
+          "explanation": "The value 1 is printed to the console.",
+          "kind": "print"
+        },
+        {
+          "step": 13,
+          "line": 6,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 2,
+            "sum": 2
+          },
+          "output": [
+            "0",
+            "1"
+          ],
+          "changes": [
+            "sum initialized to 2"
+          ],
+          "explanation": "The variable sum is declared and initialized to 2.",
+          "kind": "declare"
+        },
+        {
+          "step": 14,
+          "line": 7,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 1,
+            "i": 2,
+            "sum": 2
+          },
+          "output": [
+            "0",
+            "1"
+          ],
+          "changes": [
+            "t1 changed from 1 to 1"
+          ],
+          "explanation": "t1 = t2 updates t1. It changes from 1 to 1.",
+          "kind": "assign"
+        },
+        {
+          "step": 15,
+          "line": 8,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 2,
+            "i": 2,
+            "sum": 2
+          },
+          "output": [
+            "0",
+            "1"
+          ],
+          "changes": [
+            "t2 changed from 1 to 2"
+          ],
+          "explanation": "t2 = sum updates t2. It changes from 1 to 2.",
+          "kind": "assign"
+        },
+        {
+          "step": 16,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 2,
+            "i": 3,
+            "sum": 2
+          },
+          "output": [
+            "0",
+            "1"
+          ],
+          "changes": [
+            "i incremented from 2 to 3"
+          ],
+          "explanation": "i is incremented to 3. The condition will be re-checked.",
+          "kind": "loop-step"
+        },
+        {
+          "step": 17,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 2,
+            "i": 3,
+            "sum": 2
+          },
+          "output": [
+            "0",
+            "1"
+          ],
+          "changes": [
+            "condition i <= n evaluated to true"
+          ],
+          "explanation": "The loop condition 'i <= n' evaluates to true (i = 3, n = 3), so we enter the loop body.",
+          "kind": "condition",
+          "condition": "i <= n",
+          "condition_result": true
+        },
+        {
+          "step": 18,
+          "line": 5,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 2,
+            "i": 3,
+            "sum": 2
+          },
+          "output": [
+            "0",
+            "1",
+            "1"
+          ],
+          "changes": [
+            "printed \"1\""
+          ],
+          "explanation": "The value 1 is printed to the console.",
+          "kind": "print"
+        },
+        {
+          "step": 19,
+          "line": 6,
+          "variables": {
+            "n": 3,
+            "t1": 1,
+            "t2": 2,
+            "i": 3,
+            "sum": 3
+          },
+          "output": [
+            "0",
+            "1",
+            "1"
+          ],
+          "changes": [
+            "sum initialized to 3"
+          ],
+          "explanation": "The variable sum is declared and initialized to 3.",
+          "kind": "declare"
+        },
+        {
+          "step": 20,
+          "line": 7,
+          "variables": {
+            "n": 3,
+            "t1": 2,
+            "t2": 2,
+            "i": 3,
+            "sum": 3
+          },
+          "output": [
+            "0",
+            "1",
+            "1"
+          ],
+          "changes": [
+            "t1 changed from 1 to 2"
+          ],
+          "explanation": "t1 = t2 updates t1. It changes from 1 to 2.",
+          "kind": "assign"
+        },
+        {
+          "step": 21,
+          "line": 8,
+          "variables": {
+            "n": 3,
+            "t1": 2,
+            "t2": 3,
+            "i": 3,
+            "sum": 3
+          },
+          "output": [
+            "0",
+            "1",
+            "1"
+          ],
+          "changes": [
+            "t2 changed from 2 to 3"
+          ],
+          "explanation": "t2 = sum updates t2. It changes from 2 to 3.",
+          "kind": "assign"
+        },
+        {
+          "step": 22,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 2,
+            "t2": 3,
+            "i": 4,
+            "sum": 3
+          },
+          "output": [
+            "0",
+            "1",
+            "1"
+          ],
+          "changes": [
+            "i incremented from 3 to 4"
+          ],
+          "explanation": "i is incremented to 4. The condition will be re-checked.",
+          "kind": "loop-step"
+        },
+        {
+          "step": 23,
+          "line": 4,
+          "variables": {
+            "n": 3,
+            "t1": 2,
+            "t2": 3,
+            "i": 4,
+            "sum": 3
+          },
+          "output": [
+            "0",
+            "1",
+            "1"
+          ],
+          "changes": [
+            "condition i <= n evaluated to false",
+            "loop exited"
+          ],
+          "explanation": "The loop condition 'i <= n' evaluates to false (i = 4, n = 3), so the loop exits.",
+          "kind": "condition",
+          "condition": "i <= n",
+          "condition_result": false
+        }
+      ],
+      "language": "java"
     }
   ]
 }

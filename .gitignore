@@ -87,3 +87,5 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+.emergent/
+

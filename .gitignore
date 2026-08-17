@@ -89,3 +89,16 @@ credentials.json
 .credentials
 .emergent/
 
+# Python cache/test tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Javascript/Node build tools
+.eslintcache
+.npm
+
+# OS specific files
+Thumbs.db
+desktop.ini
+
